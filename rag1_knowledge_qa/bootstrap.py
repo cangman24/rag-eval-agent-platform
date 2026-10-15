@@ -175,6 +175,14 @@ def build_production_service() -> RagService:
         print("[warn] 未设置 DEEPSEEK_API_KEY -> 走无 LLM 降级模式（只回检索片段）")
 
     return RagService(
+        # ★ 这里必须传 llm，不能写死 None。
+        #   踩坑记录：初版这里写成了 `llm=None` —— 上面第 168 行明明把
+        #   LLMClient 构造好了，却因为这一行硬编码而被丢弃，于是：
+        #     · 服务静默降级成"未配置 LLM"模式（只回检索片段）
+        #     · 耗时只有 ~190ms（没发网络请求），很容易误判成"模型答得不好"
+        #     · 更糟的是 `if os.environ.get(...)` 那条分支走的是 else 吗？不是，
+        #       Key 明明存在，所以连 [warn] 提示都不会打印 —— 完全静默。
+        #   教训：构造完对象后，**检查它有没有真的被用上**。
         retriever=retriever, doc_lookup=lookup, llm=llm,
         config=ServiceConfig(
             top_k=env_int("RAG_TOP_K"),

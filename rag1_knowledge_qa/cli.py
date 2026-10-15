@@ -21,6 +21,7 @@
     # 健康检查
     python -m rag1_knowledge_qa.cli health
 """
+# 注释可以写在这里
 from __future__ import annotations
 
 import argparse
@@ -30,6 +31,54 @@ from typing import Any, Optional
 
 from core.service import RagService
 
+
+def _load_env() -> None:
+    """把 .env 读进 os.environ。
+
+    ★ 这段必须是**惰性 + 容错**的，不能写成模块顶层 `from dotenv import load_dotenv`。
+
+      原因（真实踩坑）：`core/` 的设计目标是「零第三方依赖、用系统 Python 就能跑
+      全部单测」。如果在模块顶层 import dotenv，那么**任何 import 本模块的行为**
+      （包括 `tests/test_cli.py`）都会在没装 dotenv 的解释器里直接 ImportError ——
+      结果就是 Day 1 的验收项「689 项测试全绿」变成 1 个 error、总数从 689 掉到 670。
+
+      改成函数内导入 + try/except 之后：
+        · 装了 python-dotenv -> 正常读 .env
+        · 没装              -> 退化为极简解析（下面手写的 KEY=VALUE），测试照常通过
+    """
+    try:
+        from dotenv import load_dotenv  # type: ignore
+        load_dotenv()
+        return
+    except ImportError:
+        pass
+    # 没有 python-dotenv 就手写一个极简解析：KEY=VALUE，忽略注释与空行。
+    # 这样即使依赖没装，本地跑 CLI 也能读到 .env。
+    import os
+    try:
+        env_path = os.path.join(os.getcwd(), ".env")
+        if not os.path.exists(env_path):
+            return
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key, value = key.strip(), value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except OSError:
+        pass
+
+
+# 让 Windows 控制台能正确输出中文（原先的 reconfigure 保留）
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except (AttributeError, OSError):
+        pass
 
 # --------------------------------------------------------------------- 输出
 def _print(obj: Any) -> None:
@@ -53,12 +102,12 @@ def cmd_ask(service: RagService, args: argparse.Namespace) -> int:
     else:
         print(f"问题: {result.query}")
         print(f"回答: {result.answer}")
-        if result.citations:
-            print("\n引用:")
-            for c in result.citations:
-                head = f"（{c.heading_path}）" if c.heading_path else ""
-                print(f"  [{c.index}] {c.chunk_id}{head}")
-                print(f"      {c.snippet[:80]}")
+        # if result.citations:
+        #     print("\n引用:")
+        #     for c in result.citations:
+        #         head = f"（{c.heading_path}）" if c.heading_path else ""
+        #         print(f"  [{c.index}] {c.chunk_id}{head}")
+        #         print(f"      {c.snippet[:80]}")
         flag = "  [拒答]" if result.refused else ""
         print(f"\n耗时 {result.latency_ms:.0f} ms{flag}")
         if result.error:
@@ -137,6 +186,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list] = None) -> int:
+    # ★ 在任何装配动作之前先把 .env 读进来 —— 否则 bootstrap 里
+    #   `os.environ.get("DEEPSEEK_API_KEY")` 会是空的，服务静默降级成
+    #   "未配置 LLM 模式"（只回检索片段），而你以为是模型答得不好。
+    _load_env()
+
     args = build_parser().parse_args(argv)
 
     if args.command == "ingest":
