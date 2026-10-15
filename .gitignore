@@ -50,3 +50,4 @@ tests/.tmp/
 
 # Mac系统文件
 .DS_Store
+data/demo_checkpoints/T-RESUME.json
