@@ -1,0 +1,16 @@
+{"qid": "q01", "query": "mAP 精度要求是多少", "gold_ids": ["c1"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q02", "query": "F1 要求是多少", "gold_ids": ["c1"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q03", "query": "数据集怎么划分", "gold_ids": ["c2"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q04", "query": "标注用什么工具", "gold_ids": ["c2"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q05", "query": "影像分辨率要求", "gold_ids": ["c2"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q06", "query": "地面采样距离要求", "gold_ids": ["c2"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q07", "query": "推荐什么基线模型", "gold_ids": ["c3"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q08", "query": "要和什么模型做对比", "gold_ids": ["c3"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q09", "query": "导出什么格式并量化", "gold_ids": ["c4"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q10", "query": "端侧时延要求", "gold_ids": ["c4"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q11", "query": "显存占用要求", "gold_ids": ["c4"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q12", "query": "验收要提交什么材料", "gold_ids": ["c5"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q13", "query": "密集遮挡场景的容差", "gold_ids": ["c1"], "gold_answer": "", "type": "multi_hop", "is_answerable": true}
+{"qid": "q14", "query": "适用对象是什么", "gold_ids": ["c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q90", "query": "公司的年假政策是怎样的", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "q91", "query": "请给出该型号轴承的许用转速", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}

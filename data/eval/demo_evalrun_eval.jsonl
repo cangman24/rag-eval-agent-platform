@@ -1,0 +1,16 @@
+{"qid": "q01", "query": "mAP 精度要求是多少", "gold_ids": ["01_检测技术要求.md#p0#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q02", "query": "F1 要求是多少", "gold_ids": ["01_检测技术要求.md#p0#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q03", "query": "小目标召回率要求", "gold_ids": ["01_检测技术要求.md#p0#c1"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q04", "query": "数据集怎么划分", "gold_ids": ["01_检测技术要求.md#p1#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q05", "query": "标注用什么工具", "gold_ids": ["01_检测技术要求.md#p1#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q06", "query": "影像分辨率要求", "gold_ids": ["01_检测技术要求.md#p1#c0"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q07", "query": "地面采样距离要求", "gold_ids": ["01_检测技术要求.md#p1#c0"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q08", "query": "推荐什么基线模型", "gold_ids": ["01_检测技术要求.md#p2#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q09", "query": "导出什么格式并量化", "gold_ids": ["02_部署规范.md#p0#c0"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q10", "query": "端侧时延要求", "gold_ids": ["02_部署规范.md#p0#c0"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q11", "query": "显存占用要求", "gold_ids": ["02_部署规范.md#p0#c0"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q12", "query": "后端用什么框架", "gold_ids": ["02_部署规范.md#p1#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q13", "query": "部署方式要求", "gold_ids": ["02_部署规范.md#p1#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q14", "query": "验收要提交什么材料", "gold_ids": ["03_验收标准.md#p0#c0"], "gold_answer": "", "type": "fact", "is_answerable": true}
+{"qid": "q15", "query": "合格线是多少", "gold_ids": ["03_验收标准.md#p1#c0"], "gold_answer": "", "type": "term", "is_answerable": true}
+{"qid": "q90", "query": "公司的年假有多少天", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}

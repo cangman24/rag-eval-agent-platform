@@ -1,0 +1,5 @@
+{"tid": "t01", "query": "工单 T-100 的关闭流程是否合规？", "expect_tools": ["kb_search", "ticket_query"], "must_contain": ["复核"], "must_not_contain": [], "task_type": "full_review", "max_rounds": 6, "note": ""}
+{"tid": "t02", "query": "工单 T-200 的关闭流程是否合规？", "expect_tools": ["kb_search", "ticket_query"], "must_contain": ["张三"], "must_not_contain": [], "task_type": "full_review", "max_rounds": 6, "note": ""}
+{"tid": "t03", "query": "违规率的口径是怎么定义的？", "expect_tools": ["kb_search", "metric_query"], "must_contain": ["违规率"], "must_not_contain": [], "task_type": "metric_report", "max_rounds": 6, "note": ""}
+{"tid": "t04", "query": "高风险工单关闭需要什么权限？", "expect_tools": ["kb_search"], "must_contain": ["三级"], "must_not_contain": [], "task_type": "spec_inquiry", "max_rounds": 6, "note": ""}
+{"tid": "t05", "query": "低风险工单需要人工复核吗？", "expect_tools": ["kb_search"], "must_contain": ["自动关闭"], "must_not_contain": [], "task_type": "spec_inquiry", "max_rounds": 6, "note": ""}
