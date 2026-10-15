@@ -1,0 +1,42 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 环境与密钥（★ 绝不要提交）
+.env
+.env.local
+*.key
+
+# 模型与数据（体积大，不入库）
+models/
+data/vectors/
+data/raw/
+data/cache/
+data/checkpoints/
+data/demo_docs/
+data/demo_chunks.json
+data/demo_evalrun_docs/
+*.faiss
+*.index
+
+# 但评测集要入库 —— 它是成果的一部分（可复现评测数据）
+!data/eval/
+!data/eval/*.jsonl
+
+# 评测报告：demo-* 是演示产物，可真机评测的 reports/run-*/ 建议保留
+reports/demo-*/
+reports/demo_*.md
+reports/ingest_manifest.json
+reports/*.tmp
+*.log
+
+# 测试临时目录（沙箱下 %TEMP% 不可写）
+tests/.tmp/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
