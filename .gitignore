@@ -1,16 +1,20 @@
-﻿# Python
+﻿# Python 编译缓存
 __pycache__/
 *.py[cod]
 *.egg-info/
+
+# 虚拟环境
 .venv/
 venv/
+miniconda3/
+conda-env/
 
-# 环境与密钥（★ 绝不要提交）
+# 环境、密钥（严禁提交）
 .env
 .env.local
 *.key
 
-# 模型与数据（体积大，不入库）
+# 模型、向量索引、大体积中间数据（不入库）
 models/
 data/vectors/
 data/raw/
@@ -22,21 +26,27 @@ data/demo_evalrun_docs/
 *.faiss
 *.index
 
-# 但评测集要入库 —— 它是成果的一部分（可复现评测数据）
+# 保留基准评测集（可复现评测的数据集，纳入版本）
 !data/eval/
 !data/eval/*.jsonl
 
-# 评测报告：demo-* 是演示产物，可真机评测的 reports/run-*/ 建议保留
+# 评测输出产物：demo演示报告忽略；正式 run-* 的报告保留
 reports/demo-*/
 reports/demo_*.md
 reports/ingest_manifest.json
 reports/*.tmp
-*.log
 
-# 测试临时目录（沙箱下 %TEMP% 不可写）
+# 日志、临时文件
+*.log
+demo_*.txt
+*.tmp
+
+# 测试临时目录
 tests/.tmp/
 
-# IDE
+# IDE 配置
 .idea/
 .vscode/
+
+# Mac系统文件
 .DS_Store
