@@ -1,0 +1,114 @@
+{"qid": "t001", "query": "安徽合肥水稻拔节期作业方案的航向重叠度要求", "gold_ids": ["plan_安徽合肥_水稻_拔节期_06.md#p1#c0"], "gold_answer": "航向重叠 80%", "type": "term", "is_answerable": true}
+{"qid": "t002", "query": "江西南昌小麦成熟期作业方案里 NDWI 的计算公式是什么", "gold_ids": ["plan_江西南昌_小麦_成熟期_38.md#p0#c0"], "gold_answer": "NDWI = (GREEN - NIR) / (GREEN + NIR)", "type": "term", "is_answerable": true}
+{"qid": "t003", "query": "江苏南京大豆分蘖期作业方案的一致率验收标准是多少", "gold_ids": ["plan_江苏南京_大豆_分蘖期_36.md#p2#c0"], "gold_answer": "一致率不低于 92%", "type": "term", "is_answerable": true}
+{"qid": "t004", "query": "江西南昌大豆成熟期作业方案的航向重叠度要求", "gold_ids": ["plan_江西南昌_大豆_成熟期_08.md#p1#c0"], "gold_answer": "航向重叠 70%", "type": "term", "is_answerable": true}
+{"qid": "t005", "query": "江西南昌玉米拔节期作业方案的航向重叠度要求", "gold_ids": ["plan_江西南昌_玉米_拔节期_39.md#p1#c0"], "gold_answer": "航向重叠 70%", "type": "term", "is_answerable": true}
+{"qid": "t006", "query": "黑龙江佳木斯小麦成熟期作业方案的一致率验收标准是多少", "gold_ids": ["plan_黑龙江佳木斯_小麦_成熟期_22.md#p2#c0"], "gold_answer": "一致率不低于 90%", "type": "term", "is_answerable": true}
+{"qid": "t007", "query": "安徽合肥水稻拔节期作业方案里 NDWI 的计算公式是什么", "gold_ids": ["plan_安徽合肥_水稻_拔节期_06.md#p0#c0"], "gold_answer": "NDWI = (GREEN - NIR) / (GREEN + NIR)", "type": "term", "is_answerable": true}
+{"qid": "t008", "query": "江西南昌油菜拔节期作业方案的航向重叠度要求", "gold_ids": ["plan_江西南昌_油菜_拔节期_54.md#p1#c0"], "gold_answer": "航向重叠 75%", "type": "term", "is_answerable": true}
+{"qid": "t009", "query": "四川成都小麦抽穗期作业方案里 NDRE 的计算公式是什么", "gold_ids": ["plan_四川成都_小麦_抽穗期_50.md#p0#c0"], "gold_answer": "NDRE = (NIR - RedEdge) / (NIR + RedEdge)", "type": "term", "is_answerable": true}
+{"qid": "t010", "query": "广东广州油菜灌浆期作业方案的航向重叠度要求", "gold_ids": ["plan_广东广州_油菜_灌浆期_37.md#p1#c0"], "gold_answer": "航向重叠 80%", "type": "term", "is_answerable": true}
+{"qid": "t011", "query": "江西南昌小麦成熟期作业方案的一致率验收标准是多少", "gold_ids": ["plan_江西南昌_小麦_成熟期_38.md#p2#c0"], "gold_answer": "一致率不低于 88%", "type": "term", "is_answerable": true}
+{"qid": "t012", "query": "河南新乡小麦灌浆期作业方案里 SAVI 的计算公式是什么", "gold_ids": ["plan_河南新乡_小麦_灌浆期_47.md#p0#c0"], "gold_answer": "SAVI = (NIR - RED) / (NIR + RED + L) x (1 + L)，L 取 0.5", "type": "term", "is_answerable": true}
+{"qid": "t013", "query": "四川成都大豆成熟期作业方案的航向重叠度要求", "gold_ids": ["plan_四川成都_大豆_成熟期_35.md#p1#c0"], "gold_answer": "航向重叠 75%", "type": "term", "is_answerable": true}
+{"qid": "t014", "query": "江西南昌水稻拔节期作业方案的航向重叠度要求", "gold_ids": ["plan_江西南昌_水稻_拔节期_28.md#p1#c0"], "gold_answer": "航向重叠 70%", "type": "term", "is_answerable": true}
+{"qid": "t015", "query": "黑龙江佳木斯油菜分蘖期作业方案的航向重叠度要求", "gold_ids": ["plan_黑龙江佳木斯_油菜_分蘖期_09.md#p1#c0"], "gold_answer": "航向重叠 80%", "type": "term", "is_answerable": true}
+{"qid": "t016", "query": "河南新乡水稻苗期作业方案里 GNDVI 的计算公式是什么", "gold_ids": ["plan_河南新乡_水稻_苗期_19.md#p0#c0"], "gold_answer": "GNDVI = (NIR - GREEN) / (NIR + GREEN)", "type": "term", "is_answerable": true}
+{"qid": "t017", "query": "湖南长沙水稻拔节期作业方案的航向重叠度要求", "gold_ids": ["plan_湖南长沙_水稻_拔节期_51.md#p1#c0"], "gold_answer": "航向重叠 75%", "type": "term", "is_answerable": true}
+{"qid": "t018", "query": "山东济南小麦苗期作业方案的航向重叠度要求", "gold_ids": ["plan_山东济南_小麦_苗期_48.md#p1#c0"], "gold_answer": "航向重叠 80%", "type": "term", "is_answerable": true}
+{"qid": "t019", "query": "江西南昌水稻拔节期作业方案里 NDWI 的计算公式是什么", "gold_ids": ["plan_江西南昌_水稻_拔节期_28.md#p0#c0"], "gold_answer": "NDWI = (GREEN - NIR) / (GREEN + NIR)", "type": "term", "is_answerable": true}
+{"qid": "t020", "query": "河南新乡水稻灌浆期作业方案里 NDRE 的计算公式是什么", "gold_ids": ["plan_河南新乡_水稻_灌浆期_10.md#p0#c0"], "gold_answer": "NDRE = (NIR - RedEdge) / (NIR + RedEdge)", "type": "term", "is_answerable": true}
+{"qid": "t021", "query": "植被指数 EVI 规范的太阳高度角要求", "gold_ids": ["spec_vegetation_evi.md#p1#c0"], "gold_answer": "太阳高度角不宜低于 30 度", "type": "term", "is_answerable": true}
+{"qid": "t022", "query": "江苏南京大豆分蘖期作业方案的航向重叠度要求", "gold_ids": ["plan_江苏南京_大豆_分蘖期_36.md#p1#c0"], "gold_answer": "航向重叠 80%", "type": "term", "is_answerable": true}
+{"qid": "t023", "query": "黑龙江佳木斯油菜分蘖期作业方案里 SAVI 的计算公式是什么", "gold_ids": ["plan_黑龙江佳木斯_油菜_分蘖期_09.md#p0#c0"], "gold_answer": "SAVI = (NIR - RED) / (NIR + RED + L) x (1 + L)，L 取 0.5", "type": "term", "is_answerable": true}
+{"qid": "t024", "query": "精度评价处理流程的几何中误差要求是多少个像元", "gold_ids": ["process_精度评价.md#p1#c0"], "gold_answer": "几何中误差不宜超过 2 个像元", "type": "term", "is_answerable": true}
+{"qid": "t025", "query": "江西南昌水稻成熟期作业方案里 SAVI 的计算公式是什么", "gold_ids": ["plan_江西南昌_水稻_成熟期_57.md#p0#c0"], "gold_answer": "SAVI = (NIR - RED) / (NIR + RED + L) x (1 + L)，L 取 0.5", "type": "term", "is_answerable": true}
+{"qid": "t026", "query": "山东济南大豆灌浆期作业方案的一致率验收标准是多少", "gold_ids": ["plan_山东济南_大豆_灌浆期_53.md#p2#c0"], "gold_answer": "一致率不低于 88%", "type": "term", "is_answerable": true}
+{"qid": "t027", "query": "广东广州大豆成熟期作业方案的一致率验收标准是多少", "gold_ids": ["plan_广东广州_大豆_成熟期_49.md#p2#c0"], "gold_answer": "一致率不低于 90%", "type": "term", "is_answerable": true}
+{"qid": "t028", "query": "植被指数 NDWI 规范的太阳高度角要求", "gold_ids": ["spec_vegetation_ndwi.md#p1#c0"], "gold_answer": "太阳高度角不宜低于 40 度", "type": "term", "is_answerable": true}
+{"qid": "t029", "query": "湖南长沙大豆抽穗期作业方案里 NDRE 的计算公式是什么", "gold_ids": ["plan_湖南长沙_大豆_抽穗期_11.md#p0#c0"], "gold_answer": "NDRE = (NIR - RedEdge) / (NIR + RedEdge)", "type": "term", "is_answerable": true}
+{"qid": "t030", "query": "江苏南京水稻灌浆期作业方案的一致率验收标准是多少", "gold_ids": ["plan_江苏南京_水稻_灌浆期_58.md#p2#c0"], "gold_answer": "一致率不低于 85%", "type": "term", "is_answerable": true}
+{"qid": "t031", "query": "四川成都小麦分蘖期作业方案的航向重叠度要求", "gold_ids": ["plan_四川成都_小麦_分蘖期_27.md#p1#c0"], "gold_answer": "航向重叠 70%", "type": "term", "is_answerable": true}
+{"qid": "t032", "query": "江西南昌大豆成熟期作业方案的一致率验收标准是多少", "gold_ids": ["plan_江西南昌_大豆_成熟期_15.md#p2#c0"], "gold_answer": "一致率不低于 85%", "type": "term", "is_answerable": true}
+{"qid": "t033", "query": "河南新乡小麦成熟期作业方案的航向重叠度要求", "gold_ids": ["plan_河南新乡_小麦_成熟期_25.md#p1#c0"], "gold_answer": "航向重叠 80%", "type": "term", "is_answerable": true}
+{"qid": "t034", "query": "水稻穗检测监测的mAP 精度要求是多少", "gold_ids": ["app_水稻穗检测.md#p1#c0"], "gold_answer": "mAP@0.5 不低于 0.88", "type": "term", "is_answerable": true}
+{"qid": "t035", "query": "四川成都小麦抽穗期作业方案的航向重叠度要求", "gold_ids": ["plan_四川成都_小麦_抽穗期_50.md#p1#c0"], "gold_answer": "航向重叠 75%", "type": "term", "is_answerable": true}
+{"qid": "t036", "query": "四川成都水稻成熟期作业方案的航向重叠度要求", "gold_ids": ["plan_四川成都_水稻_成熟期_45.md#p1#c0"], "gold_answer": "航向重叠 80%", "type": "term", "is_answerable": true}
+{"qid": "t037", "query": "江苏南京玉米灌浆期作业方案的一致率验收标准是多少", "gold_ids": ["plan_江苏南京_玉米_灌浆期_31.md#p2#c0"], "gold_answer": "一致率不低于 92%", "type": "term", "is_answerable": true}
+{"qid": "t038", "query": "江苏南京小麦成熟期作业方案里 NDWI 的计算公式是什么", "gold_ids": ["plan_江苏南京_小麦_成熟期_34.md#p0#c0"], "gold_answer": "NDWI = (GREEN - NIR) / (GREEN + NIR)", "type": "term", "is_answerable": true}
+{"qid": "t039", "query": "墒情与灌溉决策监测的mAP 精度要求是多少", "gold_ids": ["app_墒情与灌溉决策.md#p1#c0"], "gold_answer": "mAP@0.5 不低于 0.9", "type": "term", "is_answerable": true}
+{"qid": "t040", "query": "激光雷达 LiDAR传感器的航向重叠度要求", "gold_ids": ["sensor_激光雷达 LiDAR.md#p1#c0"], "gold_answer": "航向重叠度不低于 75%", "type": "term", "is_answerable": true}
+{"qid": "t041", "query": "江西南昌水稻成熟期作业方案的航向重叠度要求", "gold_ids": ["plan_江西南昌_水稻_成熟期_57.md#p1#c0"], "gold_answer": "航向重叠 70%", "type": "term", "is_answerable": true}
+{"qid": "t042", "query": "安徽合肥水稻灌浆期作业方案的一致率验收标准是多少", "gold_ids": ["plan_安徽合肥_水稻_灌浆期_29.md#p2#c0"], "gold_answer": "一致率不低于 88%", "type": "term", "is_answerable": true}
+{"qid": "f001", "query": "江西南昌油菜灌浆期作业方案的「作业参数」有哪些要求", "gold_ids": ["plan_江西南昌_油菜_灌浆期_05.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f002", "query": "安徽合肥水稻拔节期作业方案的「作业参数」的规定是什么", "gold_ids": ["plan_安徽合肥_水稻_拔节期_06.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 60 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f003", "query": "关于湖北武汉大豆抽穗期作业方案的「作业参数」，规范是怎么要求的", "gold_ids": ["plan_湖北武汉_大豆_抽穗期_14.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f004", "query": "湖南长沙小麦灌浆期作业方案的「作业参数」需要满足什么条件", "gold_ids": ["plan_湖南长沙_小麦_灌浆期_02.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 60 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f005", "query": "请说明河南新乡水稻苗期作业方案的「作业参数」的具体要求", "gold_ids": ["plan_河南新乡_水稻_苗期_19.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f006", "query": "江苏南京大豆抽穗期作业方案的「作业参数」的标准是什么", "gold_ids": ["plan_江苏南京_大豆_抽穗期_40.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f007", "query": "黑龙江佳木斯油菜分蘖期作业方案的「作业参数」有哪些要求", "gold_ids": ["plan_黑龙江佳木斯_油菜_分蘖期_09.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 60 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f008", "query": "uavmosaic的「无人机影像拼接（Mosaic）」的规定是什么", "gold_ids": ["uav_mosaic.md#p0#c0"], "gold_answer": "无人机航测需要对多张瓦片影像做辐射校正、配准，生成正射影像DOM", "type": "fact", "is_answerable": true}
+{"qid": "f009", "query": "关于四川成都大豆成熟期作业方案的「作业参数」，规范是怎么要求的", "gold_ids": ["plan_四川成都_大豆_成熟期_35.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f010", "query": "江苏南京水稻抽穗期作业方案的「作业参数」需要满足什么条件", "gold_ids": ["plan_江苏南京_水稻_抽穗期_12.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 60 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f011", "query": "请说明湖南长沙大豆苗期作业方案的「作业参数」的具体要求", "gold_ids": ["plan_湖南长沙_大豆_苗期_17.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f012", "query": "江西南昌玉米拔节期作业方案的「作业参数」的标准是什么", "gold_ids": ["plan_江西南昌_玉米_拔节期_39.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 80 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f013", "query": "河南新乡水稻分蘖期作业方案的「作业参数」有哪些要求", "gold_ids": ["plan_河南新乡_水稻_分蘖期_20.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 80 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f014", "query": "安徽合肥水稻灌浆期作业方案的「作业参数」的规定是什么", "gold_ids": ["plan_安徽合肥_水稻_灌浆期_29.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f015", "query": "关于江西南昌油菜拔节期作业方案的「作业参数」，规范是怎么要求的", "gold_ids": ["plan_江西南昌_油菜_拔节期_54.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 3 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f016", "query": "山东济南大豆灌浆期作业方案的「作业参数」需要满足什么条件", "gold_ids": ["plan_山东济南_大豆_灌浆期_03.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f017", "query": "请说明湖南长沙水稻灌浆期作业方案的「作业参数」的具体要求", "gold_ids": ["plan_湖南长沙_水稻_灌浆期_46.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 80 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f018", "query": "uavmosaic的「DSM 数字表面模型」的标准是什么", "gold_ids": ["uav_mosaic.md#p1#c0"], "gold_answer": "DSM记录地表+植被顶部高度，从多光谱或者RGB点云生成", "type": "fact", "is_answerable": true}
+{"qid": "f019", "query": "江西南昌水稻成熟期作业方案的「作业参数」有哪些要求", "gold_ids": ["plan_江西南昌_水稻_成熟期_57.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f020", "query": "江苏南京小麦灌浆期作业方案的「作业参数」的规定是什么", "gold_ids": ["plan_江苏南京_小麦_灌浆期_24.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f021", "query": "关于广东广州玉米成熟期作业方案的「作业参数」，规范是怎么要求的", "gold_ids": ["plan_广东广州_玉米_成熟期_21.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f022", "query": "江西南昌小麦成熟期作业方案的「作业参数」需要满足什么条件", "gold_ids": ["plan_江西南昌_小麦_成熟期_18.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 80 米，地面采样距离约 3 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f023", "query": "请说明河南新乡水稻灌浆期作业方案的「作业参数」的具体要求", "gold_ids": ["plan_河南新乡_水稻_灌浆期_10.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f024", "query": "江苏南京大豆分蘖期作业方案的「作业参数」的标准是什么", "gold_ids": ["plan_江苏南京_大豆_分蘖期_36.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f025", "query": "广东广州油菜灌浆期作业方案的「作业参数」有哪些要求", "gold_ids": ["plan_广东广州_油菜_灌浆期_37.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f026", "query": "山东济南水稻分蘖期作业方案的「作业参数」的规定是什么", "gold_ids": ["plan_山东济南_水稻_分蘖期_26.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f027", "query": "关于四川成都小麦拔节期作业方案的「作业参数」，规范是怎么要求的", "gold_ids": ["plan_四川成都_小麦_拔节期_42.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 60 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f028", "query": "湖南长沙水稻拔节期作业方案的「作业参数」需要满足什么条件", "gold_ids": ["plan_湖南长沙_水稻_拔节期_51.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f029", "query": "请说明河南新乡小麦灌浆期作业方案的「作业参数」的具体要求", "gold_ids": ["plan_河南新乡_小麦_灌浆期_47.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 80 米，地面采样距离约 3 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f030", "query": "广东广州大豆成熟期作业方案的「作业参数」的标准是什么", "gold_ids": ["plan_广东广州_大豆_成熟期_49.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 3 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f031", "query": "cropndvi的「NDVI植被指数」有哪些要求", "gold_ids": ["crop_ndvi.md#p0#c0"], "gold_answer": "NDVI（归一化植被指数），计算公式：NDVI = (NIR - RED) / (NIR + RED)", "type": "fact", "is_answerable": true}
+{"qid": "f032", "query": "江西南昌水稻成熟期作业方案的「作业参数」的规定是什么", "gold_ids": ["plan_江西南昌_水稻_成熟期_30.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f033", "query": "关于山东济南小麦苗期作业方案的「作业参数」，规范是怎么要求的", "gold_ids": ["plan_山东济南_小麦_苗期_48.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 60 米，地面采样距离约 3 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f034", "query": "河南新乡水稻苗期作业方案的「作业参数」需要满足什么条件", "gold_ids": ["plan_河南新乡_水稻_苗期_16.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f035", "query": "请说明四川成都小麦抽穗期作业方案的「作业参数」的具体要求", "gold_ids": ["plan_四川成都_小麦_抽穗期_50.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f036", "query": "湖北武汉玉米抽穗期作业方案的「作业参数」的标准是什么", "gold_ids": ["plan_湖北武汉_玉米_抽穗期_13.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f037", "query": "江西南昌玉米拔节期作业方案的「作业参数」有哪些要求", "gold_ids": ["plan_江西南昌_玉米_拔节期_55.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 80 米，地面采样距离约 3 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f038", "query": "湖南长沙玉米拔节期作业方案的「作业参数」的规定是什么", "gold_ids": ["plan_湖南长沙_玉米_拔节期_52.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 3 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f039", "query": "关于广东广州小麦分蘖期作业方案的「作业参数」，规范是怎么要求的", "gold_ids": ["plan_广东广州_小麦_分蘖期_07.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 150 米，地面采样距离约 2 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f040", "query": "四川成都小麦灌浆期作业方案的「作业参数」需要满足什么条件", "gold_ids": ["plan_四川成都_小麦_灌浆期_43.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 1 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f041", "query": "请说明江苏南京水稻灌浆期作业方案的「作业参数」的具体要求", "gold_ids": ["plan_江苏南京_水稻_灌浆期_58.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 120 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f042", "query": "黑龙江佳木斯小麦成熟期作业方案的「作业参数」的标准是什么", "gold_ids": ["plan_黑龙江佳木斯_小麦_成熟期_22.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "f043", "query": "江苏南京玉米灌浆期作业方案的「作业参数」有哪些要求", "gold_ids": ["plan_江苏南京_玉米_灌浆期_31.md#p1#c0"], "gold_answer": "第四条 规划飞行高度 100 米，地面采样距离约 5 厘米", "type": "fact", "is_answerable": true}
+{"qid": "m001", "query": "广东广州玉米成熟期作业方案中用到 NDVI 时，按规范有哪些要求和限制", "gold_ids": ["spec_vegetation_ndwi.md#p2#c0", "plan_广东广州_玉米_成熟期_21.md#p0#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m002", "query": "湖北武汉玉米抽穗期作业方案中用到 NDRE 时，按规范有哪些要求和限制", "gold_ids": ["spec_vegetation_ndvi.md#p2#c0", "plan_湖北武汉_玉米_抽穗期_13.md#p0#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m003", "query": "江西南昌水稻拔节期作业方案中用到 NDWI 时，按规范有哪些要求和限制", "gold_ids": ["spec_vegetation_ndwi.md#p2#c0", "plan_江西南昌_水稻_拔节期_28.md#p0#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m004", "query": "四川成都小麦分蘖期作业方案中用到 GNDVI 时，按规范有哪些要求和限制", "gold_ids": ["spec_vegetation_ndvi.md#p2#c0", "plan_四川成都_小麦_分蘖期_27.md#p0#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m005", "query": "山东济南小麦苗期作业方案中用到 SAVI 时，按规范有哪些要求和限制", "gold_ids": ["spec_vegetation_gndvi.md#p2#c0", "plan_山东济南_小麦_苗期_48.md#p0#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m006", "query": "江西南昌大豆成熟期作业方案中用到 EVI 时，按规范有哪些要求和限制", "gold_ids": ["spec_vegetation_evi.md#p2#c0", "plan_江西南昌_大豆_成熟期_15.md#p0#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m007", "query": "四川成都小麦分蘖期作业方案中用到 辐射归一化 时，按规范有哪些要求和限制", "gold_ids": ["spec_vegetation_ndre.md#p2#c0", "plan_四川成都_小麦_分蘖期_27.md#p2#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m008", "query": "湖南长沙大豆拔节期作业方案中用到 正射影像 时，按规范有哪些要求和限制", "gold_ids": ["process_几何校正与正射.md#p0#c0", "plan_湖南长沙_大豆_拔节期_56.md#p2#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "m009", "query": "江西南昌水稻拔节期作业方案中用到 地面采样距离 时，按规范有哪些要求和限制", "gold_ids": ["sensor_激光雷达 LiDAR.md#p1#c0", "plan_江西南昌_水稻_拔节期_28.md#p1#c0"], "gold_answer": "需综合规范口径与应用条件回答", "type": "multi_hop", "is_answerable": true}
+{"qid": "o001", "query": "办公楼的停车位怎么申请", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o002", "query": "报销流程需要几个工作日", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o003", "query": "请介绍一下量子计算机的纠错码原理", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o004", "query": "公司食堂的营业时间是几点到几点", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o005", "query": "Kubernetes 的 Pod 驱逐策略怎么配置", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o006", "query": "个人所得税专项附加扣除有哪些项目", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o007", "query": "服务器机房的空调温度标准是多少", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o008", "query": "请解释一下相对论的质能方程推导", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o009", "query": "劳动合同试用期最长可以是多久", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o010", "query": "公司组织架构里技术总监向谁汇报", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o011", "query": "年度绩效考核的评分标准是什么", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o012", "query": "社保缴纳基数是怎么确定的", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o013", "query": "今天天气怎么样，适合飞行吗", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o014", "query": "公司员工的年假有多少天", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o015", "query": "北京到上海的高铁最快需要多长时间", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o016", "query": "如何申请软件著作权登记", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o017", "query": "这个季度的营收同比增长了多少", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o018", "query": "这个项目的融资轮次和估值是多少", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o019", "query": "如何办理护照和签证", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}
+{"qid": "o020", "query": "请推荐几本学习深度学习的入门书", "gold_ids": [], "gold_answer": "", "type": "out_of_scope", "is_answerable": false}

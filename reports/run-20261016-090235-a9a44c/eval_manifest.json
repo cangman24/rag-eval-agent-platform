@@ -1,0 +1,228 @@
+{
+  "run_id": "run-20261016-090235-a9a44c",
+  "timestamp": "2026-10-16 09:04:31",
+  "notes": "83篇语料/244块 chunk256 ov32 BGE-M3 无judge",
+  "eval_set": {
+    "n": 114,
+    "answerable": 94,
+    "unanswerable": 20,
+    "by_type": {
+      "term": 42,
+      "fact": 43,
+      "multi_hop": 9,
+      "out_of_scope": 20
+    },
+    "path": "data/eval/eval.jsonl",
+    "sha256": "d2b3cf6a09ff673c",
+    "path_rel": "data\\eval\\eval.jsonl"
+  },
+  "ingest": {
+    "embedding_model": "unknown"
+  },
+  "retrieval": {
+    "top_k": 5,
+    "recall_k": 20,
+    "k_list": [
+      5,
+      3,
+      10
+    ],
+    "configs": [
+      {
+        "name": "A_vector_only",
+        "use_vector": true,
+        "use_bm25": false,
+        "use_rerank": false,
+        "use_rules": false
+      },
+      {
+        "name": "B_hybrid_rrf",
+        "use_vector": true,
+        "use_bm25": true,
+        "use_rerank": false,
+        "use_rules": false
+      },
+      {
+        "name": "C_hybrid_rerank",
+        "use_vector": true,
+        "use_bm25": true,
+        "use_rerank": true,
+        "use_rules": false
+      },
+      {
+        "name": "D_hybrid_rerank_rules",
+        "use_vector": true,
+        "use_bm25": true,
+        "use_rerank": true,
+        "use_rules": true
+      }
+    ]
+  },
+  "results": [
+    {
+      "config": "A_vector_only (向量)",
+      "n": 94,
+      "overall": {
+        "hit@5": 0.3511,
+        "mrr@5": 0.2695,
+        "recall@5": 0.3085,
+        "precision@5": 0.0702,
+        "ndcg@5": 0.2624
+      },
+      "latency": {
+        "mean_ms": 39.5,
+        "p50_ms": 35.8,
+        "p95_ms": 49.9,
+        "max_ms": 226.2
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.0698,
+          "mrr@5": 0.0698,
+          "recall@5": 0.0698,
+          "precision@5": 0.014,
+          "ndcg@5": 0.0698
+        },
+        "multi_hop": {
+          "hit@5": 0.8889,
+          "mrr@5": 0.7037,
+          "recall@5": 0.4444,
+          "precision@5": 0.1778,
+          "ndcg@5": 0.4607
+        },
+        "term": {
+          "hit@5": 0.5238,
+          "mrr@5": 0.381,
+          "recall@5": 0.5238,
+          "precision@5": 0.1048,
+          "ndcg@5": 0.417
+        }
+      }
+    },
+    {
+      "config": "B_hybrid_rrf (向量+BM25)",
+      "n": 94,
+      "overall": {
+        "hit@5": 0.3511,
+        "mrr@5": 0.2486,
+        "recall@5": 0.3085,
+        "precision@5": 0.0702,
+        "ndcg@5": 0.2472
+      },
+      "latency": {
+        "mean_ms": 41.8,
+        "p50_ms": 41.4,
+        "p95_ms": 46.9,
+        "max_ms": 52.8
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.0698,
+          "mrr@5": 0.0523,
+          "recall@5": 0.0698,
+          "precision@5": 0.014,
+          "ndcg@5": 0.0565
+        },
+        "multi_hop": {
+          "hit@5": 0.8889,
+          "mrr@5": 0.6667,
+          "recall@5": 0.4444,
+          "precision@5": 0.1778,
+          "ndcg@5": 0.4444
+        },
+        "term": {
+          "hit@5": 0.5238,
+          "mrr@5": 0.3599,
+          "recall@5": 0.5238,
+          "precision@5": 0.1048,
+          "ndcg@5": 0.4
+        }
+      }
+    },
+    {
+      "config": "C_hybrid_rerank (向量+BM25+Rerank)",
+      "n": 94,
+      "overall": {
+        "hit@5": 0.3617,
+        "mrr@5": 0.292,
+        "recall@5": 0.3191,
+        "precision@5": 0.0723,
+        "ndcg@5": 0.2782
+      },
+      "latency": {
+        "mean_ms": 166.8,
+        "p50_ms": 169.7,
+        "p95_ms": 179.5,
+        "max_ms": 245.0
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.0465,
+          "mrr@5": 0.0233,
+          "recall@5": 0.0465,
+          "precision@5": 0.0093,
+          "ndcg@5": 0.0293
+        },
+        "multi_hop": {
+          "hit@5": 0.8889,
+          "mrr@5": 0.8333,
+          "recall@5": 0.4444,
+          "precision@5": 0.1778,
+          "ndcg@5": 0.5199
+        },
+        "term": {
+          "hit@5": 0.5714,
+          "mrr@5": 0.4512,
+          "recall@5": 0.5714,
+          "precision@5": 0.1143,
+          "ndcg@5": 0.4812
+        }
+      }
+    },
+    {
+      "config": "D_hybrid_rerank_rules (向量+BM25+Rerank+规则)",
+      "n": 94,
+      "overall": {
+        "hit@5": 0.3617,
+        "mrr@5": 0.292,
+        "recall@5": 0.3191,
+        "precision@5": 0.0723,
+        "ndcg@5": 0.2782
+      },
+      "latency": {
+        "mean_ms": 166.2,
+        "p50_ms": 170.3,
+        "p95_ms": 181.8,
+        "max_ms": 187.9
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.0465,
+          "mrr@5": 0.0233,
+          "recall@5": 0.0465,
+          "precision@5": 0.0093,
+          "ndcg@5": 0.0293
+        },
+        "multi_hop": {
+          "hit@5": 0.8889,
+          "mrr@5": 0.8333,
+          "recall@5": 0.4444,
+          "precision@5": 0.1778,
+          "ndcg@5": 0.5199
+        },
+        "term": {
+          "hit@5": 0.5714,
+          "mrr@5": 0.4512,
+          "recall@5": 0.5714,
+          "precision@5": 0.1143,
+          "ndcg@5": 0.4812
+        }
+      }
+    }
+  ],
+  "answer_metrics": null,
+  "judge": null,
+  "eval_set_health": {
+    "problems": []
+  }
+}

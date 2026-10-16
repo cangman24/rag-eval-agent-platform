@@ -1,4 +1,26 @@
-﻿# Python 编译缓存
+# ---------------------------------------------------------------------------
+# .gitignore
+#
+# ★ 取舍原则（这是"可复现评测数据"这个目标能否成立的关键）：
+#
+#   入库：**能重新生成其它一切的源材料**
+#         · 源代码与测试
+#         · 语料 data/raw/       <- 必须入库！否则克隆下来无法重建索引与评测集
+#         · 评测集 data/eval/    <- 必须入库，它是简历数字的直接依据
+#         · 评测报告 reports/run-*/  <- 含运行指纹，是"数字可追溯"的证据
+#
+#   不入库：**可再生的产物与体积大的东西**
+#         · models/          6.4GB，且可从 HuggingFace 重新下载
+#         · data/vectors/    索引，可由 data/raw + 一条 ingest 命令重建
+#         · data/cache/      LLM 响应缓存，含调用内容，且是本地产物
+#
+#   踩坑记录：初版把 `data/raw/` 一并忽略了，理由是"数据不入库"。
+#   后果是 cloner 拿到的仓库**无法复现任何评测数字** ——
+#   语料没了，索引建不出来，评测集里的 gold_ids 也全部失效。
+#   语料只有 41KB，为了省这点体积牺牲可复现性完全不划算。
+# ---------------------------------------------------------------------------
+
+# Python 编译缓存
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -9,45 +31,50 @@ venv/
 miniconda3/
 conda-env/
 
-# 环境、密钥（严禁提交）
+# 环境、密钥（★ 严禁提交；.env 里有 DeepSeek API Key）
 .env
 .env.local
 *.key
 
-# 模型、向量索引、大体积中间数据（不入库）
+# 模型权重：6.4GB，可由 HuggingFace 重新下载
 models/
+
+# 向量索引：可由 data/raw + cli ingest 重建
 data/vectors/
-data/raw/
+data/*.faiss
+data/*.index
+
+# LLM 响应缓存：本地产物，且可能含调用内容
 data/cache/
+
+# 检查点：运行时产物
 data/checkpoints/
+data/demo_checkpoints/
+
+# demo 自动生成的临时语料（可由 demo 脚本重建）
 data/demo_docs/
 data/demo_chunks.json
 data/demo_evalrun_docs/
-*.faiss
-*.index
 
-# 保留基准评测集（可复现评测的数据集，纳入版本）
-!data/eval/
-!data/eval/*.jsonl
+# 日志与临时文件
+*.log
+# demo 运行输出：由 demo_*.py 重新生成即可，不入库
+# 注意用 demo_*output.txt（不是 demo_*_output.txt）——
+# 后者匹配不到 demo_output.txt，会漏掉一个文件
+demo_*output.txt
+*.tmp
 
-# 评测输出产物：demo演示报告忽略；正式 run-* 的报告保留
+# 测试临时目录（沙箱下 %TEMP% 不可写，测试用工作区内目录）
+tests/.tmp/
+
+# demo 演示报告忽略；正式 run-*/ 报告保留（含运行指纹，要入库）
 reports/demo-*/
 reports/demo_*.md
 reports/ingest_manifest.json
-reports/*.tmp
-
-# 日志、临时文件
-*.log
-demo_*.txt
-*.tmp
-
-# 测试临时目录
-tests/.tmp/
 
 # IDE 配置
 .idea/
 .vscode/
 
-# Mac系统文件
+# 系统文件
 .DS_Store
-data/demo_checkpoints/T-RESUME.json
