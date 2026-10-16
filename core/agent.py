@@ -363,6 +363,7 @@ class AgentEngine:
                     emit(EventType.VERIFY, ok=ok, reason=reason)
                     if ok:
                         state.finished = True
+                        state.stop_reason = "answer"  
                         emit(EventType.ANSWER, text=answer,
                              citations=state.citations)
                         self._save(state)
