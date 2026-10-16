@@ -153,9 +153,22 @@ def cmd_run(args: argparse.Namespace) -> int:
               f"mrr@5={ov.get('mrr@5', 0):.4f}")
     if result.answer_metrics:
         am = result.answer_metrics
-        print(f"  生成层：拒答正确率={am.get('refusal_accuracy', 0):.2f}  "
-              f"忠实度={am.get('groundedness_mean', 0):.2f}  "
-              f"幻觉率={am.get('hallucination_rate', 0):.2%}")
+        print(f"  生成层：拒答正确率={am.get('refusal_accuracy', 0):.2f}", end="")
+        # ★ 评委没跑时**绝不能**打印 0.00 ——
+        #   那会被读成"忠实度 0 分 / 幻觉率 0%"，
+        #   前者是灾难、后者是完美，而真相是"根本没测"。
+        #   区分"测出来是 0"与"没测"是评测报告最基本的诚实要求。
+        judged = am.get("judged", 0)
+        if judged:
+            print(f"  忠实度={am.get('groundedness_mean', 0):.2f}"
+                  f"  幻觉率={am.get('hallucination_rate', 0):.2%}"
+                  f"  相关={am.get('relevance_mean', 0):.2f}"
+                  f"  准确={am.get('accuracy_mean', 0):.2f}"
+                  f"  完整={am.get('completeness_mean', 0):.2f}"
+                  f"  (judged={judged:.0f})")
+        else:
+            print("  忠实度=未测评  幻觉率=未测评   （未启用 LLM-as-Judge，"
+                  "需 --judge 且配置 DEEPSEEK_API_KEY）")
     return 0
 
 

@@ -590,6 +590,38 @@ class TestBuildContextAndRefusal(unittest.TestCase):
         self.assertIn(REFUSAL_MARKER, body)
         self.assertIn("片段", body)
 
+    def test_answer_prompt_requires_partial_answer_before_refusal(self):
+        """★ 回归：拒答条件必须写成分级，否则会大面积过度拒答。
+
+        初版 prompt 第 2 条是：
+
+            如果片段中没有足够信息，必须回答"知识库中未找到相关内容"
+
+        这句话太容易触发 —— 模型见到"部分匹配"或"信息不完整"就套用固定话术，
+        而不是尽力作答。实测（119 条评测集，清缓存全新调用）：
+
+            拒答正确率 0.60，可答覆盖率仅 51.5%
+            相关性 3.21 / 准确性 3.03 / 完整性 2.92
+
+        改成「只有完全找不到相关内容才拒答；只要含部分相关信息，就必须先答
+        能答的部分并指出缺什么」之后：
+
+            拒答正确率 0.86，相关性 4.17 / 准确性 3.69 / 完整性 3.61
+            幻觉率反而从 2.02% 降到 1.01%
+
+        ★ 即「过度拒答」与「幻觉」并非此消彼长：把"部分信息也要作答"
+          这条写清楚，两个指标同时变好。这条测试锁住这个结论。
+        """
+        body = build_answer_messages(
+            "问题？", [{"doc_id": "a", "text": "片段", "score": 0.9}])[-1]["content"]
+        self.assertIn("完全找不到", body,
+                      "拒答条件必须限定为「完全找不到」，否则会过度拒答")
+        self.assertIn("部分", body,
+                      "必须明确要求：含部分相关信息时先答能答的部分")
+        self.assertIn("不要因为信息不完整就直接整段拒答", body)
+        self.assertNotIn("如果片段中没有足够信息，必须回答", body,
+                         "旧的二元拒答写法会让模型大面积过度拒答")
+
     def test_should_refuse_empty(self):
         self.assertTrue(should_refuse([], 0.3))
 

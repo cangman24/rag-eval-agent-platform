@@ -314,6 +314,18 @@ def _write_summary(path: str, manifest: Dict[str, Any],
     if answer_metrics:
         lines.append("## 二、生成层评测（含 LLM-as-Judge）")
         lines.append("")
+        judged = answer_metrics.get("judged", 0)
+        if not judged:
+            # ★ 没跑评委时必须显式说明，**不能**把 0.00 当结果写进报告。
+            #   报告是交付物、会被拿去讨论，一个"忠实度 0.00"或
+            #   "幻觉率 0.00%" 会被读成完全相反的两个结论 ——
+            #   而真相是"根本没测"。区分「测出来是 0」与「没测」
+            #   是评测报告最基本的诚实要求。
+            lines.append("> ⚠️ **本轮未启用 LLM-as-Judge**：忠实度与幻觉率"
+                         "**未测评**（不是 0）。")
+            lines.append("> 下表只有拒答正确率；四维分数需要 `--judge` "
+                         "且配置 `DEEPSEEK_API_KEY`。")
+            lines.append("")
         lines.append("| 指标 | 值 | 含义 |")
         lines.append("|---|---|---|")
         desc = {
@@ -323,10 +335,15 @@ def _write_summary(path: str, manifest: Dict[str, Any],
             "completeness_mean": "完整性均分（1-5）",
             "groundedness_mean": "忠实度均分（1-5，专测幻觉）",
             "hallucination_rate": "幻觉率 = 忠实度 < 阈值 的占比",
-            "judged": "参与判分的样本数",
+            "judged": "参与判分的样本数（0 = 未启用评委）",
         }
+        unjudged = ("relevance_mean", "accuracy_mean", "completeness_mean",
+                    "groundedness_mean", "hallucination_rate")
         for k, v in answer_metrics.items():
-            lines.append(f"| {k} | {v} | {desc.get(k, '')} |")
+            if not judged and k in unjudged:
+                lines.append(f"| {k} | _未测评_ | {desc.get(k, '')} |")
+            else:
+                lines.append(f"| {k} | {v} | {desc.get(k, '')} |")
         lines.append("")
         if m.get("judge"):
             j = m["judge"]
@@ -334,9 +351,10 @@ def _write_summary(path: str, manifest: Dict[str, Any],
                          f"调用 {j.get('calls')} 次，失败 {j.get('errors')} 次，"
                          f"解析失败 {j.get('parse_failures')} 次。")
             lines.append("")
-        lines.append("> ⚠️ LLM-as-Judge 存在位置偏见与自我偏好，本表用于**回归筛选**"
-                     "（快速发现版本退化），关键结论仍需人工抽检。")
-        lines.append("")
+        if judged:
+            lines.append("> ⚠️ LLM-as-Judge 存在位置偏见与自我偏好，本表用于"
+                         "**回归筛选**（快速发现版本退化），关键结论仍需人工抽检。")
+            lines.append("")
 
     lines.append("## 三、分类型表现（哪个类型最弱）")
     lines.append("")

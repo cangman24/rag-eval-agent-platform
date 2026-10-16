@@ -84,6 +84,57 @@ DEFAULTS = {
 }
 
 
+def load_env_file(path: str = ".env") -> bool:
+    """把 .env 读进 os.environ，返回是否做了填充（用于测试与自省）。
+
+    ★ 这个函数必须放在 **bootstrap** 里，而不是 cli.py 里。
+
+      踩坑记录：初版只在 cli.py 的 main() 里加载 .env，于是
+      `python -m rag1_knowledge_qa.eval --judge` 走的是**另一条入口**，
+      .env 没被读 -> bootstrap 里 `os.environ.get("DEEPSEEK_API_KEY")` 为空
+      -> 服务静默降级成"未配置 LLM"模式 -> 评测报告里出现
+
+          忠实度=0.00   幻觉率=0.00%
+
+      这种**看起来完美、实际根本没测**的数字。比报错危险得多。
+
+      教训：环境加载属于「装配」这一步，不属于某个命令行入口。
+      放在装配层，任何入口（cli / eval / server / 你自己的脚本）都自动生效。
+
+    ★ 惰性 + 容错，与 core/ 的零依赖可测设计保持一致：
+      · 不写成模块顶层 `from dotenv import load_dotenv` ——
+        那会让没装 dotenv 的解释器连 import 本模块都失败
+      · 已存在的环境变量**不覆盖** —— 显式传入的优先于 .env 文件，
+        这样测试里 `os.environ[...] = "fake"` 依然生效
+    """
+    try:
+        from dotenv import load_dotenv  # type: ignore
+        load_dotenv(path, override=False)
+        return True
+    except ImportError:
+        pass
+
+    # 没有 python-dotenv 就手写极简解析：KEY=VALUE，忽略注释与空行
+    try:
+        if not os.path.exists(path):
+            return False
+        touched = False
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+                    touched = True
+        return touched
+    except OSError:
+        return False
+
+
 def env(key: str) -> str:
     return os.environ.get(key, DEFAULTS.get(key, ""))
 
@@ -152,7 +203,14 @@ def build_or_load_index(embedder: Any):
 
 
 def build_production_service() -> RagService:
-    """完整装配：embedder + reranker + 索引 + LLM + ServiceConfig。"""
+    """完整装配：embedder + reranker + 索引 + LLM + ServiceConfig。
+
+    ★ 第一步就是加载 .env —— 这是「装配」的职责，不是某个入口的职责。
+      放在这里之后，任何入口（cli / eval / server / 你的脚本）都自动生效，
+      不会再出现"某个入口忘了加载、于是静默降级成无 LLM 模式"的情况。
+    """
+    load_env_file()
+
     embedder, reranker = build_embedder_and_reranker()
     bm25, store, lookup, stats = build_or_load_index(embedder)
 
