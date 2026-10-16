@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# docker-compose.yml —— 一条命令起服务
+#
+#   docker compose up --build
+#   docker compose exec rag python -m rag1_knowledge_qa.cli health
+#
+# ★ 关键设计：模型与索引都用 bind mount 而不是打进镜像。
+#   换模型只改 .env 里的路径，不用重新 build；
+#   索引在宿主机建好后挂进去，容器无状态、随时可重建。
+#
+# ★ 我在本机实测过：**这台机器没有安装 Docker**
+#   （沙箱环境也没有）。所以这个文件是"写得出、但我没验证过"的。
+#   面试时如实说明这一点，比声称"已用 Docker 部署"要好。
+#   你装了 Docker Desktop 之后，第一条命令就是：
+#       docker compose up --build
+#   如果报错，把完整输出发我。
+# ---------------------------------------------------------------------------
+services:
+  rag:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # 需要 GPU 推理时改成 https://download.pytorch.org/whl/cu121
+        # 并同时把下面的 deploy.resources 打开
+        TORCH_INDEX: https://download.pytorch.org/whl/cpu
+    image: domain-rag-qa:0.1.0
+    container_name: domain-rag-qa
+
+    # ★ 用 env_file 而不是把 key 写进 compose：.env 已在 .gitignore 里
+    env_file:
+      - .env
+
+    environment:
+      # 容器内的路径（与 .env 里可能写的宿主机路径解耦）
+      BGE_M3_PATH: /app/models/bge-m3
+      BGE_RERANKER_PATH: /app/models/bge-reranker-v2-m3
+      RAG_DOCS_DIR: /app/data/raw
+      RAG_CHUNKS_FILE: /app/data/vectors/chunks.json
+      RAG_VECTORS_FILE: /app/data/vectors/vectors.json
+      RAG_LOG_LEVEL: info
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      # 模型只读挂载：容器绝不修改权重
+      - ./models:/app/models:ro
+      # 数据可写：容器内可能要建库（cli ingest）
+      - ./data:/app/data
+      - ./reports:/app/reports
+
+    # 装配要加载两个模型，给足启动时间再判健康
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
+    restart: unless-stopped
+
+    # ---- 需要 GPU 时取消下面注释，并把上面 TORCH_INDEX 换成 cu121 ----
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

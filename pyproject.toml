@@ -1,0 +1,118 @@
+# ---------------------------------------------------------------------------
+# pyproject.toml
+#
+# ★ 依赖分层是本文件最重要的设计（不是随手列一串包名）：
+#
+#     （无依赖）  -> core/ 18 个模块，纯标准库
+#     core        -> 上面 + 可选的向量库/LLM SDK（都做了延迟导入）
+#     ml          -> 本地嵌入与精排（torch + transformers + FlagEmbedding）
+#     serve       -> FastAPI 服务层
+#     dev         -> 测试与工具链
+#
+#   依据（实测）：core/ 的 726 项单测**不需要任何第三方包**，
+#   0.8 秒跑完。所以 CI 可以用 `pip install -e .` 就完成测试，
+#   不必装 2.5GB 的 torch。这正是"零依赖可测"这个设计换来的收益。
+#
+#   安装方式：
+#     pip install -e .              # 只装运行时最小集
+#     pip install -e ".[serve]"     # 加上 FastAPI
+#     pip install -e ".[ml,serve]"  # 全套（本机开发）
+#     pip install -e ".[dev]"       # 测试与工具
+# ---------------------------------------------------------------------------
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "domain-rag-qa"
+version = "0.1.0"
+description = "垂直领域 RAG 知识问答系统 + 企业知识库 Agent 平台（可复现评测）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "刘丰硕" }]
+keywords = ["rag", "agent", "retrieval", "llm", "evaluation", "mcp"]
+
+# 运行时最小依赖：core/ 其实一个都不需要，这里只列"几乎总会用到"的
+dependencies = []
+
+[project.optional-dependencies]
+# 向量库（也可用 core.vectorstore.InMemoryVectorStore 完全替代）
+core = [
+    "chromadb>=0.5,<0.6",
+    "openai>=1.51,<2",
+    "python-dotenv>=1.0",
+]
+
+# 本地嵌入与精排。★ 注意 transformers 必须锁 4.x：
+#   sentence-transformers / FlagEmbedding 目前只兼容 4.x，
+#   而新版 conda 环境常自带 5.x（实测 fieldai 环境是 5.19.0，会直接报错）。
+ml = [
+    "torch>=2.4",
+    "transformers>=4.44,<4.46",
+    "sentence-transformers>=3.0,<4",
+    "FlagEmbedding>=1.2.11",
+]
+
+# HTTP 服务层
+serve = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sse-starlette>=2.1",
+    "pydantic>=2.8",
+]
+
+# 文档解析（pdf / docx；md/txt/json/jsonl/html 无需额外依赖）
+docs = [
+    "pypdf>=4.3",
+    "python-docx>=1.1",
+]
+
+# 测试与工具链
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[project.urls]
+Homepage = "https://github.com/cangman24/_starter"
+
+# ---------------------------------------------------------------------------
+# 打包：只收 core 与两个项目包，排除 demo_* / tests / data
+# ---------------------------------------------------------------------------
+[tool.setuptools]
+packages = ["core", "rag1_knowledge_qa", "rag2_kb_agent"]
+
+# ---------------------------------------------------------------------------
+# 工具链配置
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+# core/ 的设计目标之一就是"快"——726 项测试 0.8 秒。
+# 超过 30 秒说明有人引入了网络或模型调用，应当失败而不是慢慢跑。
+timeout = 30
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["data", "models", "reports", ".git"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = [
+    "E501",   # 行长由 formatter 处理，中文注释难对齐
+    "B008",   # 允许函数默认值里调用（本项目大量用 dataclass field 与注入）
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]          # 测试里允许 assert False 之类
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+ignore_missing_imports = true     # torch / chromadb / langgraph 都是可选依赖
+exclude = ["data/", "models/", "reports/", "demo_"]

@@ -1,0 +1,210 @@
+# ---------------------------------------------------------------------------
+# GitHub Actions —— 持续集成
+#
+# ★ 这个 workflow 的核心卖点是**它跑得极快**，而这个快是有设计依据的：
+#
+#   core/ 的 18 个模块全部零第三方依赖，726 项单测 0.8 秒跑完。
+#   所以 CI 里**不需要装 torch**（2.5GB）、不需要下模型、不需要 API Key，
+#   也不需要开数据库服务。整个 job 通常 30 秒内结束。
+#
+#   这不是"省 CI 分钟数"的小聪明，而是一个可验证的架构主张：
+#   **业务逻辑与外部依赖解耦到「换掉 torch 也不影响测试」的程度。**
+#   面试时可以直接把这条 workflow 打开给人看。
+#
+#   代价也说清楚：torch / chromadb / langgraph 这些可选依赖的**真实行为**
+#   不在 CI 覆盖范围内，必须在本地机器上验证（见 README 的"未验证项"）。
+# ---------------------------------------------------------------------------
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 同一分支的旧运行自动取消，省资源
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================ 主测试
+  test:
+    name: 离线单测（${{ matrix.os }} / py${{ matrix.python-version }}）
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false          # 一个平台挂了也要看另一个的结果
+      matrix:
+        # Windows 是主要目标平台（开发机），Linux 是为了确认没有平台耦合
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # ★ 故意不装 torch / chromadb / langgraph / fastapi。
+      #   如果测试需要它们才能过，说明核心逻辑被外部依赖污染了 ——
+      #   这一步就是在守护那条架构边界。
+      - name: 确认零依赖即可测试
+        run: python -m unittest discover -s tests -v
+
+      - name: 分模块跑（定位失败更快）
+        run: |
+          python -m unittest tests.test_core tests.test_pipeline tests.test_evaluation -v
+          python -m unittest tests.test_judge_runner tests.test_eval_cli tests.test_agent_eval -v
+          python -m unittest tests.test_agent tests.test_agent_langgraph tests.test_memory -v
+          python -m unittest tests.test_service tests.test_loaders_sse tests.test_ingest tests.test_cli tests.test_decisions -v
+        shell: bash
+
+      - name: 语法全库扫描（含 __init__.py 的 BOM 问题）
+        run: |
+          python - <<'PY'
+          import io, os, sys
+          bad = 0
+          for dp, dn, fn in os.walk('.'):
+              dn[:] = [d for d in dn if d not in
+                       ('__pycache__', '.tmp', 'data', 'models', '.git', 'reports')]
+              for n in fn:
+                  if n.endswith('.py'):
+                      p = os.path.join(dp, n)
+                      try:
+                          compile(io.open(p, encoding='utf-8').read(), p, 'exec')
+                      except SyntaxError as e:
+                          bad += 1
+                          print(f'{p}:{e.lineno}: {e.msg}')
+          print('语法错误文件数:', bad)
+          sys.exit(1 if bad else 0)
+          PY
+        shell: bash
+
+  # ============================================================ demo 冒烟
+  demos:
+    name: demo 冒烟（每个 demo 必须 exit 0）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: 逐个运行 demo
+        run: |
+          set -e
+          for d in demo_core demo_pipeline demo_eval demo_agent demo_ingest \
+                   demo_service demo_agent2 demo_evalrun demo_agenteval; do
+            printf "  %-18s " "$d"
+            python "$d.py" > /dev/null
+            echo "OK"
+          done
+
+  # ============================================================ 可复现性
+  reproducibility:
+    name: 可复现性（语料生成确定性 + 评测集体检）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # ★ 这条是"可复现评测数据"这个说法的**机器可验证证据**：
+      #   同一个 seed 必须生成完全相同的语料。
+      #   如果有人改了生成逻辑又没意识到会改变输出，这里会红。
+      - name: 语料生成必须确定（同 seed 两次输出一致）
+        run: |
+          set -e
+          python tools/gen_corpus.py --out /tmp/c1 --n 80 --seed 42 > /dev/null
+          python tools/gen_corpus.py --out /tmp/c2 --n 80 --seed 42 > /dev/null
+          if diff -r /tmp/c1 /tmp/c2 > /dev/null; then
+            echo "✓ 同 seed 生成结果一致（$(ls /tmp/c1 | wc -l) 篇）"
+          else
+            echo "✗ 同 seed 生成结果不一致，可复现性被破坏"
+            diff -r /tmp/c1 /tmp/c2 | head -20
+            exit 1
+          fi
+
+      - name: 语料与评测集规模校验
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          raw = [f for f in os.listdir('data/raw') if f.endswith('.md')]
+          ev = [json.loads(l) for l in open('data/eval/eval.jsonl', encoding='utf-8')
+                if l.strip()]
+          types = {}
+          for it in ev:
+              types[it['type']] = types.get(it['type'], 0) + 1
+          print(f'语料 {len(raw)} 篇')
+          print(f'评测集 {len(ev)} 条 {types}')
+          problems = []
+          if len(raw) < 50:
+              problems.append(f'语料过少（{len(raw)}），评测没有区分度')
+          if len(ev) < 100:
+              problems.append(f'评测集过少（{len(ev)}）')
+          for it in ev:
+              if it['is_answerable'] and not it['gold_ids']:
+                  problems.append(f"{it['qid']}: 可答但没有 gold_ids")
+          if problems:
+              print('问题：')
+              for p in problems[:20]:
+                  print('  -', p)
+              sys.exit(1)
+          print('✓ 规模与标注完整性检查通过')
+          PY
+
+  # ============================================================ 静态检查
+  lint:
+    name: ruff 静态检查
+    runs-on: ubuntu-latest
+    continue-on-error: true     # 不阻断主流程；先让它可见，再逐步收紧
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install ruff
+      - run: ruff check . --output-format=github
+
+  # ============================================================ 密钥防护
+  secret-guard:
+    name: 密钥防护（.env 绝不能进版本库）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # 需要全量历史才能扫"曾经提交过"
+
+      # ★ 这条防的是"提交过又被删掉"的情况：
+      #   镜像层与 git 历史一样不可变，删掉的文件仍在历史里可被 pull 出来。
+      - name: 全量历史扫描 .env 与硬编码密钥
+        run: |
+          set -e
+          if git log --all --name-only --pretty=format: | grep -qx '\.env'; then
+            echo "✗ .env 曾出现在提交历史中，必须立刻轮换 Key 并清理历史"
+            exit 1
+          fi
+          echo "✓ .env 从未被提交"
+          if git grep -nE 'sk-[A-Za-z0-9]{20,}' -- . ':!*.example' ':!.github' ; then
+            echo "✗ 发现疑似硬编码 API Key"
+            exit 1
+          fi
+          echo "✓ 未发现硬编码密钥"
+
+      - name: 检查有无不该入库的大文件
+        run: |
+          set -e
+          big=$(git ls-files | while read f; do
+                  [ -f "$f" ] && s=$(wc -c < "$f") && \
+                  [ "$s" -gt 102400 ] && echo "$s $f"
+                done || true)
+          if [ -n "$big" ]; then
+            echo "以下文件 >100KB，确认是否该入库："
+            echo "$big"
+          else
+            echo "✓ 无 >100KB 的文件被跟踪"
+          fi

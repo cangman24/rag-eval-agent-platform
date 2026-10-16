@@ -1,12 +1,47 @@
-# Day 1~7 起步包 · 两个项目的已验证代码
+# 两个 Agent 项目 · 可运行代码 + 可复现评测
 
-> 配套 `../7天Agent项目冲刺计划.md`。
-> **689 项单测全绿**，全部离线可跑（无网络、无 GPU、无 API Key、无第三方依赖）。
-> **18 个 core 模块 + 两个项目装配层 + 两份项目 README + 10 个可运行 demo。**
+> 垂直领域 RAG 知识问答系统（项目一）· 企业知识库 Agent 平台（项目二）
+>
+> **762 项单测全绿**，全部离线可跑（无网络、无 GPU、无 API Key、无第三方依赖）。
+> **19 个 core 模块 + 两个项目装配层 + 两份项目 README + 10 个 demo + 完整工程件。**
 
 ```bash
 cd _starter
-python -m unittest discover -s tests -v    # 期望 689 tests OK
+python -m unittest discover -s tests -v    # 期望 762 tests OK（约 0.9 秒）
+```
+
+### 用 make 更省事
+
+```bash
+make            # 看所有可用目标
+make test       # 762 项离线单测
+make demo       # 跑全部 demo
+make ingest     # 用 data/raw 建库（需 agent_rag 环境 + BGE 模型）
+make eval       # 检索层四档消融 + LLM-as-Judge，产出可复现报告
+make eval-show  # 看最近一次 run 的指标
+make lint       # ruff 静态检查
+```
+
+> **`PY` 与 `PY2` 的分工是刻意的**，别合并：
+> `PY` 跑 core/ 与测试（零依赖，环境装不上也能验证代码是对的）；
+> `PY2` 跑真模型与真 API。合并之后"验证代码"就依赖环境，环境坏了什么都验不了。
+
+### Docker
+
+```bash
+cp .env.example .env        # 填入 DEEPSEEK_API_KEY
+docker compose up --build   # 起了之后访问 http://localhost:8000/health
+```
+
+> ⚠️ **诚实标注**：`Dockerfile` / `docker-compose.yml` **我没有在你机器上验证过**——
+> 这台机器实测未安装 Docker，沙箱内也无法安装。
+> 文件是按官方文档写的、YAML 已解析校验、路径与 `bootstrap.DEFAULTS` 做过一致性测试，
+> 但**首次 `docker compose up` 可能仍需调一两次**。面试时请如实说"写了 Dockerfile，
+> 本机没装 Docker 所以未实测"，不要声称"已用 Docker 部署"。
+
+### 单独跑 demo（不想用 make 的话）
+
+```bash
 python demo_core.py                        # 切分与 RRF 融合
 python demo_pipeline.py                    # 检索链路（BM25+向量+RRF+拒答+指标）
 python demo_eval.py                        # 检索层消融
@@ -22,7 +57,24 @@ python demo_agenteval.py                   # ★ Agent 层四档消融（六类�
 
 ## 一、这个包里有什么
 
-### core/（18 个模块，零第三方依赖）
+### core/（21 个模块；17 个纯标准库，4 个的第三方依赖全部延迟导入）
+
+> **「零依赖可测」是精确说法，不是笼统的「没有依赖」**：
+> 21 个模块里 **17 个只用标准库**（`agent` / `agent_langgraph` / `agent_eval` /
+> `bm25` / `eval_runner` / `evaluation` / `ingest` / `judge` / `loaders` / `mcp` /
+> `memory` / `metrics` / `pipeline` / `retrieval` / `service` / `sse` / `text`）。
+> 剩下 4 个用到第三方，但**全部延迟导入**：
+>
+> | 模块 | 依赖 | 缺失时的行为 |
+> |---|---|---|
+> | `embedder.py` | torch / transformers / numpy | 只有加载真模型时才需要 |
+> | `reranker.py` | torch / transformers | 同上 |
+> | `vectorstore.py` | chromadb | 抛 `MissingDependency`；`InMemoryVectorStore` 可完全替代 |
+> | `llm.py` | openai | 抛错并给出安装命令；也可注入自定义 transport |
+>
+> 因此 **762 项测试在裸 Python 上全绿（0.9 秒）**，CI 不需要装 2.5GB 的 torch。
+> 这条边界由 `.github/workflows/ci.yml` 里的一条断言守着：
+> 一旦有人在 CI 里 `pip install torch`，就说明有核心模块被外部依赖污染了。
 
 | 文件 | 内容 | 状态 |
 |---|---|---|
@@ -64,7 +116,7 @@ python demo_agenteval.py                   # ★ Agent 层四档消融（六类�
 | `decisions.py` | **★ 真模型决策解析**：function calling → act_fn；幻觉/越权/多调用；**引用反查** | ✅ 已单测 |
 | `prompts.py` | **★ messages 组装**：按白名单注入工具、三层记忆、工具结果按预算截断 | ✅ 已单测 |
 
-### tests/（13 个文件，689 项用例）与 reports/
+### tests/（15 个文件，762 项用例）与 reports/
 
 **外部依赖只在四处，且全部延迟导入**：
 
@@ -250,12 +302,12 @@ RRF 只用**排名**：`score = Σ 1/(k + rank)`，天然免疫量纲问题且�
 | `core/logging.py` | loguru + 耗时埋点 | 简单，AI 可写 |
 | `core/cache.py` | **直接复用 `core/llm.py` 的 `DiskCache`** | ✅ 已给 |
 
-接进 `pipeline.py` 只需两个函数，签名已经约定好：
+接进 `pipeline.py` 只需两个函数，签名已经约定好（**这两个类已完成**）：
 
 ```python
 from core.pipeline import HybridRetriever, ablation_configs
-from core.embedder import BgeEmbedder      # 你自己写
-from core.reranker import BgeReranker      # 你自己写
+from core.embedder import BgeEmbedder
+from core.reranker import BgeReranker
 
 embedder = BgeEmbedder("models/bge-m3")                    # 输出 L2 归一化向量
 reranker = BgeReranker("models/bge-reranker-v2-m3")        # (query, pairs) -> [(id, score)]
@@ -271,21 +323,62 @@ for cfg in ablation_configs(top_k=5):
                              config_name=cfg.name)
 ```
 
+> **`rerank` 的返回值是 `[(chunk_id, score)]`，不是 `[(正文, score)]`。**
+> 这一点踩过坑：返回正文也能"看起来正常工作"（排序是对的），
+> 但下游拿正文当 id 去查文档必然返回空 —— 引用溯源显示空片段、
+> 评测时 rerank 档的 id 与 `gold_ids` 对不上，**而且不报错**。
+> `tests/test_engineering_config.py` 与 Agent 层测试都覆盖了这类契约。
+
 ---
 
-## 七、接进你的项目
+## 七、环境准备与端到端跑通
 
 ```bash
-cp -r _starter/core   <你的项目>/core
-cp -r _starter/tests  <你的项目>/tests
-cd <你的项目> && python -m unittest discover -s tests   # 193 tests OK
+# ① 建环境（复用已有的 conda 环境，省 1.5~2GB torch 下载）
+conda create -n agent_rag --clone fieldai -y
+conda run -n agent_rag pip install "transformers==4.44.2" --force-reinstall --no-deps
+conda run -n agent_rag pip install -e ".[ml,serve,core]"
+
+# ② 下模型（用镜像加速）
+export HF_ENDPOINT=https://hf-mirror.com
+# bge-m3 与 bge-reranker-v2-m3 各约 2.2GB -> models/
+
+# ③ 建库
+conda run -n agent_rag python -m rag1_knowledge_qa.cli ingest --docs data/raw
+
+# ④ 一条命令出评测报告
+conda run -n agent_rag python -m rag1_knowledge_qa.eval \
+    --eval-set data/eval/eval.jsonl --ablation --judge --k-list 5 3 10 --out reports
 ```
 
-**建议 Day 1 第一件事就是跑这 193 个测试**——它立刻告诉你 Python 环境是否可用，比写完 200 行代码才发现环境有问题省事得多。
+**★ `transformers` 必须锁 4.44.2。** 实测 conda 克隆出来的环境常自带 5.19.0，
+而 `sentence-transformers` / `FlagEmbedding` 尚不兼容 5.x —— 不降级会在加载模型时直接报错。
 
 ---
 
-## 八、全流程端到端演示（`demo_ingest_output.txt`）
+## 八、尚未在本机验证的部分（如实标注）
+
+| 项 | 状态 | 原因 |
+|---|---|---|
+| `langgraph` 版引擎 | **已写 + 35 项离线测试通过，但未用真 langgraph 验证过** | 开发环境 pypi 不可达，装不上 langgraph。测试用了一个语义正确的 StateGraph 替身验证图接线，真 langgraph 的 API 细节需你在本机确认 |
+| `Dockerfile` / `docker-compose.yml` | **已写 + YAML 已校验 + 路径一致性已测，但未构建过** | 本机未安装 Docker |
+| `api_fastapi.py` / `server.py` | **已写，未实跑** | 需 `pip install fastapi uvicorn` |
+| `core/embedder.py` / `core/reranker.py` | ✅ **已验证** | 实测 BGE-M3 输出 1024 维、L2 范数 1.0000，走 GPU |
+
+**真机第一件事**：
+
+```bash
+conda run -n agent_rag pip install "langgraph==0.2.28"
+python -c "from core.agent_langgraph import langgraph_available; print(langgraph_available())"
+python -m unittest tests.test_agent_langgraph -v
+```
+
+通过就用 LangGraph 版（简历上"基于 LangGraph"变成真的）；
+不通过就 `make_agent_engine(prefer_langgraph=False)` 回退到已验证的自实现版。
+
+---
+
+## 九、全流程端到端演示（`demo_ingest_output.txt`）
 
 `demo_ingest.py` 是把所有模块串起来的"总装配"，也是 Day 6 要打包进仓库的主脚本：
 

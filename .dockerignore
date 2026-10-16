@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# .dockerignore
+#
+# ★ 这个文件的作用不只是"减小构建上下文"，更重要的是**防止密钥与
+#   大文件被意外打进镜像层**。镜像层不可变且可被 pull 到任何地方 ——
+#   一旦 .env 进去了，即使后续删除，它仍留在被删层的 history 里。
+#
+#   所以这里的 .env 不是可选项，是必须项。
+# ---------------------------------------------------------------------------
+
+# 密钥（★ 必须排除）
+.env
+.env.local
+*.key
+*.pem
+
+# 模型权重：6.4GB。运行时用 volume 挂载，不打进镜像。
+models/
+
+# 向量索引：由 data/raw + 一条 ingest 命令重建，不打进镜像
+data/vectors/
+
+# LLM 响应缓存与运行时产物
+data/cache/
+data/checkpoints/
+data/demo_docs/
+data/demo_chunks.json
+data/demo_evalrun_docs/
+
+# 评测报告：属于仓库交付物，但服务运行不需要
+reports/
+
+# 测试与 demo：镜像里不需要（CI 里单独跑）
+tests/
+demo_*.py
+demo_*output.txt
+create_demo_corpus.py
+download_model.py
+
+# Python 与工具链缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# 版本控制与 IDE
+.git/
+.gitignore
+.github/
+.idea/
+.vscode/
+.DS_Store
+
+# 文档（README 已单独 COPY 用于打包元数据）
+*.md
+!README.md
