@@ -362,6 +362,44 @@ class TestMakefile(unittest.TestCase):
     def test_help_is_default_goal(self):
         self.assertIn(".DEFAULT_GOAL := help", read("Makefile"))
 
+    def test_no_carriage_returns(self):
+        """★ Makefile 里绝不能有 CR（CRLF 会让 make 报 missing separator）。
+
+        这是 GNU make 在 Windows 上最经典的坑：配方行末尾的 CR 被当作命令
+        的一部分，报错指向一个看起来完全正常的行，极难定位。
+
+        触发条件是 `core.autocrlf=true`（Windows 常见默认），
+        仓库存 LF、检出成 CRLF。所以必须同时靠 .gitattributes 锁行尾 +
+        这条断言兜底（它检查的就是**磁盘上的真实字节**）。
+
+        本项目的 ci.yml 里 `run:` 的多行 shell 也怕 CR，
+        所以顺带一起检查。
+        """
+        for path in ("Makefile", ".github/workflows/ci.yml",
+                     "docker-compose.yml", "Dockerfile"):
+            with open(os.path.join(ROOT, path), "rb") as f:
+                raw = f.read()
+            self.assertNotIn(b"\r\n", raw,
+                             f"{path} 含 CRLF 行尾：Makefile 会导致 "
+                             f"missing separator，CI 的多行 shell 会失配")
+
+    def test_gitattributes_locks_line_endings(self):
+        """★ .gitattributes 必须把 Makefile / CI 锁成 LF。
+
+        只靠"我写入时是 LF"不够 —— core.autocrlf 会在 checkout 时改写。
+        必须在版本库层面声明，否则 clone 到 Windows 就坏。
+        """
+        path = os.path.join(ROOT, ".gitattributes")
+        self.assertTrue(os.path.exists(path), "缺少 .gitattributes")
+        body = read(".gitattributes")
+        for pattern in ("Makefile", ".github/workflows/*.yml", "*.py"):
+            self.assertIn(pattern, body, f".gitattributes 应声明 {pattern}")
+        # 关键文件必须是 eol=lf
+        mf_line = next((l for l in body.splitlines()
+                        if l.startswith("Makefile")), "")
+        self.assertIn("eol=lf", mf_line,
+                      "Makefile 必须显式 eol=lf（不能只靠 text=auto）")
+
     def test_references_existing_demos(self):
         """make demo 里列的 demo 必须真实存在，否则会静默跳过。"""
         import re

@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# .gitattributes —— 强制关键文件使用 LF 行尾
+#
+# ★ 这不是风格问题，是**功能问题**。两类文件在 Windows 上会因 CRLF 直接坏掉：
+#
+#   1. Makefile
+#      配方行末尾的 CR 会被 make 当作命令内容的一部分，
+#      报错信息是 `missing separator`，而且指向一个看起来完全正常的行。
+#      这是 GNU make 在 Windows 上最经典的坑。
+#
+#   2. .github/workflows/*.yml 与 shell 脚本
+#      在 bash 里 `\r` 会让 `set -e`、变量赋值、heredoc 结束标记失配。
+#      YAML 本身能容忍，但 `run:` 里的多行 shell 不能。
+#
+#   触发条件是 `core.autocrlf=true`（Windows 上的常见默认值）：
+#   仓库里存 LF，checkout 时被转成 CRLF，于是上面两类文件当场失效。
+#
+#   踩坑记录：本项目就撞上了 —— 写入时是纯 LF，但 git 提示
+#   "LF will be replaced by CRLF the next time Git touches it"，
+#   说明索引/工作区已被转换策略覆盖。
+#
+# ★ text=auto 让 git 自行判定文本文件；eol=lf 强制检出为 LF。
+#   显式声明的优先于 text=auto。
+# ---------------------------------------------------------------------------
+
+# 默认：由 git 判定，检出时保持仓库内的行尾
+* text=auto
+
+# ---- 必须 LF：在 Windows 上会被 CRLF 破坏的文件 ----
+Makefile            text eol=lf
+makefile            text eol=lf
+GNUmakefile         text eol=lf
+
+*.sh                text eol=lf
+*.bash              text eol=lf
+
+# CI 配置（run: 里的多行 shell 对 CR 敏感）
+.github/workflows/*.yml   text eol=lf
+.github/workflows/*.yaml  text eol=lf
+
+# Docker：COPY 与 RUN 里的多行命令对行尾敏感
+Dockerfile          text eol=lf
+Dockerfile.*        text eol=lf
+*.dockerfile        text eol=lf
+docker-compose.yml  text eol=lf
+.dockerignore       text eol=lf
+
+# ---- Python / 配置：统一 LF，避免 diff 噪声 ----
+*.py                text eol=lf
+*.pyi               text eol=lf
+*.toml              text eol=lf
+*.cfg               text eol=lf
+*.ini               text eol=lf
+*.json              text eol=lf
+*.jsonl             text eol=lf
+*.md                text eol=lf
+.gitignore          text eol=lf
+.gitattributes      text eol=lf
+
+# ---- 二进制：禁止任何转换 ----
+*.png               binary
+*.jpg               binary
+*.jpeg              binary
+*.gif               binary
+*.pdf               binary
+*.docx              binary
+*.xlsx              binary
+*.pptx              binary
+*.pt                binary
+*.bin               binary
+*.safetensors       binary
+*.index             binary
+
+# ---- 语言统计：让 GitHub 不把 data/ 与 reports/ 算进代码占比 ----
+data/**             linguist-vendored
+reports/**          linguist-generated

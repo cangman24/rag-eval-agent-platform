@@ -78,3 +78,6 @@ reports/ingest_manifest.json
 
 # 系统文件
 .DS_Store
+
+# 临时提交信息文件（提交后即删，避免误入库）
+_commit*.txt
