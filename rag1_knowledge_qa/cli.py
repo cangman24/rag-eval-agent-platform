@@ -102,12 +102,19 @@ def cmd_ask(service: RagService, args: argparse.Namespace) -> int:
     else:
         print(f"问题: {result.query}")
         print(f"回答: {result.answer}")
-        # if result.citations:
-        #     print("\n引用:")
-        #     for c in result.citations:
-        #         head = f"（{c.heading_path}）" if c.heading_path else ""
-        #         print(f"  [{c.index}] {c.chunk_id}{head}")
-        #         print(f"      {c.snippet[:80]}")
+        # ★ 这段不要注释掉 —— 它是「引用溯源」这个卖点的唯一可见证据。
+        #   踩坑记录：这段曾被临时注释，结果 result.citations 明明有 2 条
+        #   （build_citations 实测正常），终端却什么都不显示，
+        #   tests/test_cli.py 的断言也随之失败。排查时很迷惑：
+        #   service 层是对的，坏在展示层。
+        #   引用为空只有两种情况：真拒答（refused=True），或检索无命中。
+        #   而这两种情况 answer 里都会明确说"未找到"，所以不需要额外提示。
+        if result.citations:
+            print("\n引用:")
+            for c in result.citations:
+                head = f"（{c.heading_path}）" if c.heading_path else ""
+                print(f"  [{c.index}] {c.chunk_id}{head}")
+                print(f"      {c.snippet[:80]}")
         flag = "  [拒答]" if result.refused else ""
         print(f"\n耗时 {result.latency_ms:.0f} ms{flag}")
         if result.error:

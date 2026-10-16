@@ -126,6 +126,35 @@ class TestAskCommand(unittest.TestCase):
         self.assertIn("引用:", out)
         self.assertIn("第二章 > 精度要求", out)
 
+    def test_citation_block_is_not_commented_out(self):
+        """★ 回归测试：引用打印段曾被临时注释掉。
+
+        症状很迷惑：service 层 `result.citations` 有 2 条、JSON 模式也正常，
+        只有**人读模式**什么都不显示 —— 这种"展示层坏掉"最难排查。
+        这里同时断言三条，任何一条被改坏都会立刻失败。
+        """
+        _, plain = run_capture(cmd_ask, make_service(),
+                               ns(query="精度", stream=False, json=False))
+        _, js = run_capture(cmd_ask, make_service(),
+                            ns(query="精度", stream=False, json=True))
+        data = json.loads(js)
+
+        self.assertTrue(data["citations"], "service 层应产出引用")
+        self.assertIn("引用:", plain, "人读模式必须打印引用段")
+        expected = len(data["citations"])
+        self.assertEqual(plain.count("  ["), expected,
+                         f"人读模式应打印 {expected} 条引用")
+        for c in data["citations"]:
+            self.assertIn(c["chunk_id"], plain)
+
+    def test_no_citation_shown_when_refused(self):
+        """拒答时不应打印引用段（否则会给用户虚假来源）。"""
+        svc = make_service(llm=FakeLLM("知识库中未找到相关内容。"))
+        _, out = run_capture(cmd_ask, svc,
+                             ns(query="精度", stream=False, json=False))
+        self.assertIn("拒答", out)
+        self.assertNotIn("引用:", out)
+
     def test_json_output_is_valid(self):
         code, out = run_capture(cmd_ask, make_service(),
                                 ns(query="精度", stream=False, json=True))

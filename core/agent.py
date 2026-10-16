@@ -111,8 +111,21 @@ class AgentState:
         known = {f for f in AgentState.__dataclass_fields__}  # type: ignore[attr-defined]
         return AgentState(**{k: v for k, v in (d or {}).items() if k in known})
 
-    def elapsed_s(self) -> float:
-        return time.time() - self.started_at
+    def elapsed_s(self, clock: Optional[Callable[[], float]] = None) -> float:
+        """已耗时（秒）。
+
+        ★ `clock` 参数是可选的，为了**向后兼容**：原有调用 `state.elapsed_s()`
+          行为不变。但引擎在判定超时时必须传自己的注入时钟：
+
+              state.elapsed_s(self._clock)
+
+          否则这里会退回真实的 time.time()，注入时钟在超时判定上就失效了
+          —— 这类"部分走了注入、部分没走"的 bug 最难发现，
+          因为测试里注入时钟看上去"生效了"（其它地方在用），
+          唯独超时这一条判断永远用真时间。
+        """
+        now = clock() if clock is not None else time.time()
+        return now - self.started_at
 
     def signature(self) -> str:
         """用于重复动作检测：轮次无关，只看意图与工具序列。"""
