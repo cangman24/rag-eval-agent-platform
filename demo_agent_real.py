@@ -48,6 +48,36 @@ def kb_search(query: str, top_k: int = 3):
         "hits": [{"id": cid, "text": chunk_map.get(cid, "")} for cid, _ in hits],
     }
 
+@reg.tool(description="按工单号查询工单状态与处理记录")
+def ticket_query(ticket_id: str):
+    """查询工单
+
+    ticket_id: 工单号，如 T-100
+    """
+    store = {
+        "T-100": {"ticket_id": "T-100", "status": "closed",
+                  "content": "NDRE 规范制定", "owner": "张三"},
+        "T-200": {"ticket_id": "T-200", "status": "open",
+                  "content": "辐射校正方案评审", "owner": "李四"},
+    }
+    return store.get(ticket_id, {"ticket_id": ticket_id, "status": "not_found"})
+
+@reg.tool(description="查询业务指标统计值（数量、占比、趋势）")
+def metric_query(metric: str, period: str = "近30天"):
+    """查询指标
+
+    metric: 指标名，如 工单量 / 违规率 / 占比
+    period: 统计周期
+    """
+    data = {
+        ("工单量", "近30天"): 42,
+        ("违规率", "近30天"): 0.03,
+        ("复核通过率", "近30天"): 0.85,
+    }
+    value = data.get((metric, period))
+    return {"metric": metric, "period": period, "value": value,
+            "unit": "起" if "量" in metric else "比例"}
+
 @reg.tool(description="发送邮件（有副作用）", sensitive=True)
 def send_mail(to: str):
     """发送邮件
@@ -98,18 +128,17 @@ run2 = engine.run("帮我查一下制度的 NDRE 规范，然后发邮件给 bos
 show("2. 越权拦截", run2)
 
 # ---------------------------------------------------------
-# 场景 3：熔断演示（强制 max_rounds=1，让第一轮就被截断）
+# 场景 3：熔断演示（强制 max_rounds=1）
 # ---------------------------------------------------------
 engine_loop = make_engine(max_rounds=1)
 run3 = engine_loop.run("帮我检索制度的 NDRE 规范")
 show("3. 熔断演示（max_rounds=1）", run3)
 
 # ---------------------------------------------------------
-# 场景 4：断点续跑（用同一个 checkpointer 分两段跑）
+# 场景 4：断点续跑
 # ---------------------------------------------------------
 print(f"\n{'='*60}\n【场景】4. 断点续跑\n{'='*60}")
 
-# 第一段：max_rounds=1，强制中断
 engine_cp1 = make_engine(max_rounds=1)
 run4 = engine_cp1.run("帮我检索制度的 NDRE 规范并总结", thread_id="T-DEMO-CP")
 print(f"第一段:")
@@ -119,7 +148,6 @@ print(f"  rounds      = {run4.state.rounds}")
 print(f"  tool_calls  = {run4.state.tool_calls}")
 print(f"  answer      = {run4.state.answer[:100]}...")
 
-# 第二段：用 resume 从断点继续
 engine_cp2 = make_engine()
 run5 = engine_cp2.resume("T-DEMO-CP")
 print(f"\n续跑:")
@@ -129,3 +157,21 @@ print(f"  rounds      = {run5.state.rounds}")
 print(f"  tool_calls  = {run5.state.tool_calls}")
 print(f"  answer      = {run5.state.answer[:200]}...")
 print(f"  citations   = {run5.state.citations}")
+
+# ---------------------------------------------------------
+# 场景 5：工单查询（record_lookup → ticket_query）
+# ---------------------------------------------------------
+run6 = engine.run("帮我查一下工单 T-100 的处理记录")
+show("5. 工单查询", run6)
+
+# ---------------------------------------------------------
+# 场景 6：指标查询（metric_report → metric_query）
+# ---------------------------------------------------------
+run7 = engine.run("近30天的工单量是多少？")
+show("6. 指标查询", run7)
+
+# ---------------------------------------------------------
+# 场景 7：合规审查（full_review → 多工具协作）
+# ---------------------------------------------------------
+run8 = engine.run("帮我做一次合规审查：查一下工单 T-100 的记录，看看 NDRE 规范有没有相关要求")
+show("7. 合规审查（多工具）", run8)
