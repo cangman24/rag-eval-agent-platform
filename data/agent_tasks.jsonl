@@ -1,0 +1,150 @@
+{"tid": "s000", "query": "查询NDRE的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s001", "query": "查询NDVI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s002", "query": "查询NDWI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s003", "query": "查询辐射校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s004", "query": "查询几何校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s005", "query": "查询正射影像的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s006", "query": "查询小麦头计数的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s007", "query": "查询倒伏面积的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s008", "query": "查询墒情的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s009", "query": "查询水稻穗检测的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s010", "query": "查询NDRE的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s011", "query": "查询NDVI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s012", "query": "查询NDWI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s013", "query": "查询辐射校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s014", "query": "查询几何校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s015", "query": "查询正射影像的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s016", "query": "查询小麦头计数的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s017", "query": "查询倒伏面积的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s018", "query": "查询墒情的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s019", "query": "查询水稻穗检测的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s020", "query": "查询NDRE的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s021", "query": "查询NDVI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s022", "query": "查询NDWI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s023", "query": "查询辐射校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s024", "query": "查询几何校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s025", "query": "查询正射影像的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s026", "query": "查询小麦头计数的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s027", "query": "查询倒伏面积的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s028", "query": "查询墒情的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s029", "query": "查询水稻穗检测的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s030", "query": "查询NDRE的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s031", "query": "查询NDVI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s032", "query": "查询NDWI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s033", "query": "查询辐射校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s034", "query": "查询几何校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s035", "query": "查询正射影像的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s036", "query": "查询小麦头计数的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s037", "query": "查询倒伏面积的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s038", "query": "查询墒情的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s039", "query": "查询水稻穗检测的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s040", "query": "查询NDRE的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s041", "query": "查询NDVI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s042", "query": "查询NDWI的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s043", "query": "查询辐射校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s044", "query": "查询几何校正的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s045", "query": "查询正射影像的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s046", "query": "查询小麦头计数的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s047", "query": "查询倒伏面积的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s048", "query": "查询墒情的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "s049", "query": "查询水稻穗检测的规范要求", "expect_tools": ["kb_search"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "spec_inquiry"}
+{"tid": "d000", "query": "帮我查一下工单 T-100 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d001", "query": "帮我查一下工单 T-101 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d002", "query": "帮我查一下工单 T-102 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d003", "query": "帮我查一下工单 T-103 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d004", "query": "帮我查一下工单 T-104 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d005", "query": "帮我查一下工单 T-105 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d006", "query": "帮我查一下工单 T-106 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d007", "query": "帮我查一下工单 T-107 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d008", "query": "帮我查一下工单 T-108 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d009", "query": "帮我查一下工单 T-109 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d010", "query": "帮我查一下工单 T-110 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d011", "query": "帮我查一下工单 T-111 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d012", "query": "帮我查一下工单 T-112 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d013", "query": "帮我查一下工单 T-113 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d014", "query": "帮我查一下工单 T-114 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d015", "query": "帮我查一下工单 T-115 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d016", "query": "帮我查一下工单 T-116 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d017", "query": "帮我查一下工单 T-117 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d018", "query": "帮我查一下工单 T-118 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d019", "query": "帮我查一下工单 T-119 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d020", "query": "帮我查一下工单 T-120 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d021", "query": "帮我查一下工单 T-121 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d022", "query": "帮我查一下工单 T-122 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d023", "query": "帮我查一下工单 T-123 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d024", "query": "帮我查一下工单 T-124 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d025", "query": "帮我查一下工单 T-125 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d026", "query": "帮我查一下工单 T-126 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d027", "query": "帮我查一下工单 T-127 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d028", "query": "帮我查一下工单 T-128 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d029", "query": "帮我查一下工单 T-129 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d030", "query": "帮我查一下工单 T-130 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d031", "query": "帮我查一下工单 T-131 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d032", "query": "帮我查一下工单 T-132 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d033", "query": "帮我查一下工单 T-133 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d034", "query": "帮我查一下工单 T-134 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d035", "query": "帮我查一下工单 T-135 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d036", "query": "帮我查一下工单 T-136 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d037", "query": "帮我查一下工单 T-137 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d038", "query": "帮我查一下工单 T-138 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d039", "query": "帮我查一下工单 T-139 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d040", "query": "帮我查一下工单 T-140 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d041", "query": "帮我查一下工单 T-141 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d042", "query": "帮我查一下工单 T-142 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d043", "query": "帮我查一下工单 T-143 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d044", "query": "帮我查一下工单 T-144 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d045", "query": "帮我查一下工单 T-145 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d046", "query": "帮我查一下工单 T-146 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d047", "query": "帮我查一下工单 T-147 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d048", "query": "帮我查一下工单 T-148 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "d049", "query": "帮我查一下工单 T-149 的处理记录，看看符合规范吗", "expect_tools": ["ticket_query", "kb_search"], "must_contain": [], "must_not_contain": ["未找到", "我无法"], "task_type": "record_lookup"}
+{"tid": "t000", "query": "做合规审查：查工单 T-200 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t001", "query": "做合规审查：查工单 T-201 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t002", "query": "做合规审查：查工单 T-202 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t003", "query": "做合规审查：查工单 T-203 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t004", "query": "做合规审查：查工单 T-204 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t005", "query": "做合规审查：查工单 T-205 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t006", "query": "做合规审查：查工单 T-206 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t007", "query": "做合规审查：查工单 T-207 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t008", "query": "做合规审查：查工单 T-208 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t009", "query": "做合规审查：查工单 T-209 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t010", "query": "做合规审查：查工单 T-210 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t011", "query": "做合规审查：查工单 T-211 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t012", "query": "做合规审查：查工单 T-212 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t013", "query": "做合规审查：查工单 T-213 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t014", "query": "做合规审查：查工单 T-214 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t015", "query": "做合规审查：查工单 T-215 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t016", "query": "做合规审查：查工单 T-216 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t017", "query": "做合规审查：查工单 T-217 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t018", "query": "做合规审查：查工单 T-218 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t019", "query": "做合规审查：查工单 T-219 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t020", "query": "做合规审查：查工单 T-220 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t021", "query": "做合规审查：查工单 T-221 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t022", "query": "做合规审查：查工单 T-222 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t023", "query": "做合规审查：查工单 T-223 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t024", "query": "做合规审查：查工单 T-224 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t025", "query": "做合规审查：查工单 T-225 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t026", "query": "做合规审查：查工单 T-226 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t027", "query": "做合规审查：查工单 T-227 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t028", "query": "做合规审查：查工单 T-228 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t029", "query": "做合规审查：查工单 T-229 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t030", "query": "做合规审查：查工单 T-230 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t031", "query": "做合规审查：查工单 T-231 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t032", "query": "做合规审查：查工单 T-232 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t033", "query": "做合规审查：查工单 T-233 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t034", "query": "做合规审查：查工单 T-234 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t035", "query": "做合规审查：查工单 T-235 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t036", "query": "做合规审查：查工单 T-236 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t037", "query": "做合规审查：查工单 T-237 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t038", "query": "做合规审查：查工单 T-238 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t039", "query": "做合规审查：查工单 T-239 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t040", "query": "做合规审查：查工单 T-240 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t041", "query": "做合规审查：查工单 T-241 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t042", "query": "做合规审查：查工单 T-242 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t043", "query": "做合规审查：查工单 T-243 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t044", "query": "做合规审查：查工单 T-244 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t045", "query": "做合规审查：查工单 T-245 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t046", "query": "做合规审查：查工单 T-246 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t047", "query": "做合规审查：查工单 T-247 的记录，核对 NDRE 规范，再看近30天复核通过率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t048", "query": "做合规审查：查工单 T-248 的记录，核对 NDRE 规范，再看近30天工单量", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
+{"tid": "t049", "query": "做合规审查：查工单 T-249 的记录，核对 NDRE 规范，再看近30天违规率", "expect_tools": ["ticket_query", "kb_search", "metric_query"], "must_contain": [], "must_not_contain": ["我无法"], "task_type": "full_review"}
