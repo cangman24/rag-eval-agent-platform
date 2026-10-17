@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -59,7 +60,7 @@ def send_mail(to: str):
 llm = LLMClient(
     api_key=os.environ["DEEPSEEK_API_KEY"],
     model="deepseek-chat",
-    cache=DiskCache("data/cache/llm"),
+    cache=None,     # ★ Demo 时禁用缓存，避免坏响应被固化
 )
 
 # ============ 4. 引擎 ============
@@ -84,16 +85,47 @@ def show(name, run):
         if e["type"] in ("tool_call", "tool_error", "tool_result", "answer"):
             print(f"  [{e['type']}] {json.dumps(e.get('data', {}), ensure_ascii=False)[:120]}")
 
-
+# ---------------------------------------------------------
 # 场景 1：正常问答
+# ---------------------------------------------------------
 run1 = engine.run("制度里有没有 NDRE 公式的标准说明？")
 show("1. 正常问答", run1)
 
-# 场景 2：越权拦截（想调 send_mail，但白名单没有）
+# ---------------------------------------------------------
+# 场景 2：越权拦截
+# ---------------------------------------------------------
 run2 = engine.run("帮我查一下制度的 NDRE 规范，然后发邮件给 boss@company.com")
 show("2. 越权拦截", run2)
 
-# 场景 3：循环熔断（用小 max_rounds 快速触发）
-engine_loop = make_engine(max_rounds=3)
-run3 = engine_loop.run("反复检索制度的 XYZABC 规范，直到检索到相关内容为止")
-show("3. 循环熔断", run3)
+# ---------------------------------------------------------
+# 场景 3：熔断演示（强制 max_rounds=1，让第一轮就被截断）
+# ---------------------------------------------------------
+engine_loop = make_engine(max_rounds=1)
+run3 = engine_loop.run("帮我检索制度的 NDRE 规范")
+show("3. 熔断演示（max_rounds=1）", run3)
+
+# ---------------------------------------------------------
+# 场景 4：断点续跑（用同一个 checkpointer 分两段跑）
+# ---------------------------------------------------------
+print(f"\n{'='*60}\n【场景】4. 断点续跑\n{'='*60}")
+
+# 第一段：max_rounds=1，强制中断
+engine_cp1 = make_engine(max_rounds=1)
+run4 = engine_cp1.run("帮我检索制度的 NDRE 规范并总结", thread_id="T-DEMO-CP")
+print(f"第一段:")
+print(f"  thread_id   = {run4.state.thread_id}")
+print(f"  stop_reason = {run4.state.stop_reason}")
+print(f"  rounds      = {run4.state.rounds}")
+print(f"  tool_calls  = {run4.state.tool_calls}")
+print(f"  answer      = {run4.state.answer[:100]}...")
+
+# 第二段：用 resume 从断点继续
+engine_cp2 = make_engine()
+run5 = engine_cp2.resume("T-DEMO-CP")
+print(f"\n续跑:")
+print(f"  thread_id   = {run5.state.thread_id}")
+print(f"  stop_reason = {run5.state.stop_reason}")
+print(f"  rounds      = {run5.state.rounds}")
+print(f"  tool_calls  = {run5.state.tool_calls}")
+print(f"  answer      = {run5.state.answer[:200]}...")
+print(f"  citations   = {run5.state.citations}")
