@@ -12,7 +12,8 @@
     rag2/prompts.py   system_prompt 按白名单 + 记忆组装，工具结果按预算截断
 
 ★ 本文件**不依赖 langgraph 库**：core/agent.py 是自实现的等价状态机，
-  Checkpoint / 白名单 / 熔断的逻辑已被 558 项单测覆盖，可在无网络环境验证。
+  Checkpoint / 白名单 / 熔断的逻辑已被单测覆盖（全库共 765 项），
+  可在无网络环境验证。
 """
 from __future__ import annotations
 

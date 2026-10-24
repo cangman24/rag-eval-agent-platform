@@ -21,7 +21,6 @@
     # 健康检查
     python -m rag1_knowledge_qa.cli health
 """
-# 注释可以写在这里
 from __future__ import annotations
 
 import argparse
@@ -40,7 +39,7 @@ def _load_env() -> None:
       原因（真实踩坑）：`core/` 的设计目标是「零第三方依赖、用系统 Python 就能跑
       全部单测」。如果在模块顶层 import dotenv，那么**任何 import 本模块的行为**
       （包括 `tests/test_cli.py`）都会在没装 dotenv 的解释器里直接 ImportError ——
-      结果就是 Day 1 的验收项「689 项测试全绿」变成 1 个 error、总数从 689 掉到 670。
+      测试套件里凭空多出一个 error，"零第三方依赖可测"当场破产。
 
       改成函数内导入 + try/except 之后：
         · 装了 python-dotenv -> 正常读 .env

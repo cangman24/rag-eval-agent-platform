@@ -21,7 +21,7 @@ import os
 import shutil
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.eval_runner import (
     EvalRunConfig, compare_runs, run_eval,

@@ -1,58 +1,17 @@
 # -*- coding: utf-8 -*-
 """rag1_knowledge_qa/bootstrap.py —— 生产装配（需要真机：GPU + BGE 模型 + DeepSeek Key）。
 
-★ 这个文件是给你**补完剩下 20% 代码**的地方。它把已验证的 core 模块
-  串成一个可服务的实例，你只需要实现两个类：
+把已验证的 core 模块串成一个可服务的实例：
 
-      core/embedder.py  ->  BgeEmbedder
-          encode_batch(texts: list[str]) -> list[list[float]]   # 必须 L2 归一化
-          encode_one(text: str)         -> list[float]
+    core/embedder.py  ->  BgeEmbedder（已实现）
+        encode_batch(texts: list[str]) -> list[list[float]]   # L2 归一化
+        encode_one(text: str)         -> list[float]
 
-      core/reranker.py  ->  BgeReranker
-          rerank(query: str, pairs: list[tuple[str, str]]) -> list[tuple[str, float]]
+    core/reranker.py  ->  BgeReranker（已实现）
+        rerank(query: str, pairs: list[tuple[str, str]]) -> list[tuple[str, float]]
 
-  参考实现（用 sentence-transformers / FlagEmbedding）：
-
-      # core/embedder.py
-      from sentence_transformers import SentenceTransformer
-      from core.vectorstore import l2_normalize
-
-      class BgeEmbedder:
-          def __init__(self, model_path, device=None, batch_size=32):
-              self.model = SentenceTransformer(model_path, device=device)
-              self.batch_size = batch_size
-
-          def encode_batch(self, texts):
-              vecs = self.model.encode(texts, batch_size=self.batch_size,
-                                       normalize_embeddings=True,
-                                       show_progress_bar=len(texts) > 200)
-              return [l2_normalize(list(map(float, v))) for v in vecs]
-
-          def encode_one(self, text):
-              return self.encode_batch([text])[0]
-
-      # core/reranker.py
-      from FlagEmbedding import FlagReranker
-
-      class BgeReranker:
-          def __init__(self, model_path, use_fp16=True):
-              self.model = FlagReranker(model_path, use_fp16=use_fp16)
-
-          def rerank(self, query, pairs):
-              if not pairs:
-                  return []
-              scores = self.model.compute_score(
-                  [[query, text] for _id, text in pairs], normalize=True)
-              if not isinstance(scores, list):
-                  scores = [scores]
-              out = [(pairs[i][0], float(s)) for i, s in enumerate(scores)]
-              out.sort(key=lambda kv: (-kv[1], kv[0]))
-              return out
-
-  ⚠️ 注意 transformers 版本：sentence-transformers / FlagEmbedding 目前主要
-     兼容 4.x。若你的环境是 transformers 5.x（如 fieldai 环境是 5.19.0），
-     先降到 4.44.2：
-         pip install "transformers==4.44.2" --force-reinstall --no-deps
+参考实现（sentence-transformers / FlagEmbedding 路线）与 transformers 版本注意事项
+见 core/embedder.py 与 core/reranker.py 的 docstring。
 """
 from __future__ import annotations
 

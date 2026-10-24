@@ -442,7 +442,8 @@ class AgentEngine:
             try:
                 self.checkpointer.save(state.thread_id, state)
             except OSError:
-                # 存盘失败不该让整轮 Agent 崩掉 —— 但会被 stop_reason 反映出来
+                # 存盘失败不让整轮 Agent 崩掉；代价是这一轮的检查点丢失，
+                # resume 时会退回上一个可用检查点（或初始状态）重跑。
                 pass
 
     def resume(self, thread_id: str) -> AgentRun:

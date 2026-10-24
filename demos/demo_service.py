@@ -17,7 +17,7 @@ import os
 import sys
 from contextlib import redirect_stdout
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.agent import AgentEngine, InMemoryCheckpointer
 from core.mcp import ToolRegistry

@@ -7,7 +7,7 @@
 #
 # 用法（Windows 上用 Git Bash 或 make 的移植版）：
 #
-#   make test           # 726 项离线单测（不需要任何第三方包）
+#   make test           # 765 项离线单测（不需要任何第三方包）
 #   make demo           # 跑全部 demo
 #   make ingest         # 用 data/raw 建库
 #   make eval           # 检索层四档消融 + LLM-as-Judge
@@ -41,7 +41,7 @@ help:  ## 显示所有可用目标
 	  | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
 # ------------------------------------------------------------------ 测试
-test:  ## 跑全部离线单测（726 项，不需要第三方依赖）
+test:  ## 跑全部离线单测（765 项，不需要第三方依赖）
 	$(PY) -m unittest discover -s tests -v
 
 test-fast:  ## 快速跑一遍（静默模式，只看结果）
@@ -51,7 +51,7 @@ demo:  ## 跑全部 demo（每个都应 exit 0）
 	@for d in demo_core demo_pipeline demo_eval demo_agent demo_ingest \
 	          demo_service demo_agent2 demo_evalrun demo_agenteval; do \
 	  printf "  %-18s " $$d; \
-	  if $(PY) $$d.py > /dev/null 2>&1; then echo "OK"; else echo "FAIL"; fi; \
+	  if $(PY) demos/$$d.py > /dev/null 2>&1; then echo "OK"; else echo "FAIL"; fi; \
 	done
 
 # ------------------------------------------------------------------ 数据

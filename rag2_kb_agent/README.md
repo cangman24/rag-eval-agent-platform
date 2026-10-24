@@ -83,7 +83,7 @@ rag2_kb_agent/
 ├── prompts.py     ★ system_prompt 按白名单 + 记忆组装；工具结果按预算截断
 └── README.md      本文件
 
-复用 core/（15 个模块，569 项单测）：
+复用 core/（21 个模块，全库 765 项零依赖单测）：
     mcp.py      工具注册中心 + Schema 自动生成 + 白名单过滤
     agent.py    状态机 + Checkpoint + 三道熔断 + 事件流
     memory.py   三层记忆 + 三级上下文压缩
@@ -131,7 +131,7 @@ print(run.state.answer, run.state.citations)
 
 | 理由 | 说明 |
 |---|---|
-| **可离线验证** | Checkpoint / 白名单 / 熔断是**工程逻辑**，其正确性与 langgraph 装不装得上无关，必须先能单测（本包 569 项单测，0.5 秒跑完） |
+| **可离线验证** | Checkpoint / 白名单 / 熔断是**工程逻辑**，其正确性与 langgraph 装不装得上无关，必须先能单测（全库 765 项单测，约 1.2 秒跑完） |
 | **迁移成本极低** | 状态字段、节点划分、条件边语义都对齐 langgraph；真机把 `AgentEngine.run` 换成 `StateGraph` 编译即可 |
 | **面试可讲** | "我自实现过一遍，所以知道每一步在解决什么" 远强于 "我调了库" |
 

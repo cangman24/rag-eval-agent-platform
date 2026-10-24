@@ -9,8 +9,8 @@
 #     serve       -> FastAPI 服务层
 #     dev         -> 测试与工具链
 #
-#   依据（实测）：core/ 的 726 项单测**不需要任何第三方包**，
-#   0.8 秒跑完。所以 CI 可以用 `pip install -e .` 就完成测试，
+#   依据（实测）：全库 765 项单测**不需要任何第三方包**，
+#   约 1.2 秒跑完。所以 CI 可以用 `pip install -e .` 就完成测试，
 #   不必装 2.5GB 的 torch。这正是"零依赖可测"这个设计换来的收益。
 #
 #   安装方式：
@@ -91,7 +91,7 @@ packages = ["core", "rag1_knowledge_qa", "rag2_kb_agent"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-# core/ 的设计目标之一就是"快"——726 项测试 0.8 秒。
+# core/ 的设计目标之一就是"快"——765 项测试约 1.2 秒。
 # 超过 30 秒说明有人引入了网络或模型调用，应当失败而不是慢慢跑。
 timeout = 30
 addopts = "-q"

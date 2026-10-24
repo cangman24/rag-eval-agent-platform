@@ -21,7 +21,7 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.agent_eval import (
     AgentTask, agent_ablation_configs, render_agent_ablation,

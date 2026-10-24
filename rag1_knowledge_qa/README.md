@@ -79,7 +79,7 @@
 ## 3. 代码结构
 
 ```
-core/                             # ★ 已验证的核心（420+ 单测，零第三方依赖）
+core/                             # ★ 已验证的核心（全库 765 项单测，19/21 模块零第三方依赖）
 ├── loaders.py      多格式解析（依赖可选，坏文件不中断整批）
 ├── retrieval.py    递归切分（标题层级）+ RRF 融合
 ├── text.py         中文分词（单字 + bigram）+ 文本归一化
@@ -113,7 +113,7 @@ rag1_knowledge_qa/                # 本项目
 
 ```bash
 cd _starter
-python -m unittest discover -s tests -v   # 420+ 项单测
+python -m unittest discover -s tests -v   # 765 项零依赖单测
 python demo_ingest.py                     # 全流程：文件 -> 索引 -> Agent -> 评测
 ```
 

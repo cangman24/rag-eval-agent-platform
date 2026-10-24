@@ -216,7 +216,7 @@ class TestCIConfig(unittest.TestCase):
 
     @requires_yaml
     def test_does_not_install_heavy_deps(self):
-        """★ CI 的核心主张：726 项测试**不需要** torch / chromadb / langgraph。
+        """★ CI 的核心主张：765 项测试**不需要** torch / chromadb / langgraph。
 
         如果哪天有人在 CI 里加了 torch，说明有核心模块被外部依赖污染了 ——
         这条断言就是在守护那条架构边界。
@@ -406,8 +406,46 @@ class TestMakefile(unittest.TestCase):
         names = re.findall(r"(demo_[a-z0-9_]+)", read("Makefile"))
         for n in sorted(set(names)):
             self.assertTrue(
-                os.path.exists(os.path.join(ROOT, f"{n}.py")),
-                f"Makefile 引用了不存在的 {n}.py")
+                os.path.exists(os.path.join(ROOT, "demos", f"{n}.py")),
+                f"Makefile 引用了不存在的 demos/{n}.py")
+
+    def test_demos_insert_repo_root(self):
+        """★ 回归：demo 必须把**仓库根**插入 sys.path。
+
+        踩坑记录：demos/ 从仓库根移进子目录后，9 个 demo 仍在插入
+        `dirname(__file__)`（那已经是 demos/ 自己），从根目录运行全部
+        ModuleNotFoundError；另一个用 `sys.path.insert(0, ".")` 只依赖
+        cwd，换目录运行就坏。这里统一断言"插入仓库根且不依赖 cwd"，
+        让这类错误在 CI 零依赖环境里直接红，而不是等用户跑 demo 才发现。
+        """
+        import glob
+        broken = []
+        for path in sorted(glob.glob(os.path.join(ROOT, "demos", "*", "*.py")) +
+                           glob.glob(os.path.join(ROOT, "demos", "*.py"))):
+            with open(path, encoding="utf-8") as f:
+                src = f.read()
+            if "sys.path.insert" not in src:
+                continue  # 不 manipulates path 的 demo 不适用
+            if "os.path.dirname(os.path.dirname(os.path.abspath(__file__)))" not in src:
+                broken.append(os.path.basename(path))
+        self.assertEqual(broken, [],
+                         f"这些 demo 没有插入仓库根: {broken}")
+
+    def test_live_demos_not_in_tests(self):
+        """★ 回归：tests/ 里不许出现需要真模型/API 的脚本。
+
+        test_real_agent.py 曾经是个 88 行的真机冒烟脚本（顶层代码 +
+        硬导入 dotenv + 需要 GPU 与 API Key），被 unittest discover
+        收集后在裸环境必然 ImportError。真机脚本只许住在 demos/live/。
+        """
+        import glob
+        for path in glob.glob(os.path.join(ROOT, "tests", "*.py")):
+            with open(path, encoding="utf-8") as f:
+                src = f.read()
+            for line in src.splitlines():
+                if line.startswith("from dotenv") or line.startswith("import dotenv"):
+                    self.fail(f"{os.path.basename(path)} 在模块顶层导入 dotenv，"
+                              f"会破坏零依赖可测；真机脚本请放 demos/live/")
 
 
 # ================================================================== pyproject

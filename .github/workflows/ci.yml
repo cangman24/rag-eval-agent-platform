@@ -3,7 +3,7 @@
 #
 # ★ 这个 workflow 的核心卖点是**它跑得极快**，而这个快是有设计依据的：
 #
-#   core/ 的 18 个模块全部零第三方依赖，726 项单测 0.8 秒跑完。
+#   全库 765 项单测零第三方依赖，约 1.2 秒跑完。
 #   所以 CI 里**不需要装 torch**（2.5GB）、不需要下模型、不需要 API Key，
 #   也不需要开数据库服务。整个 job 通常 30 秒内结束。
 #
@@ -99,7 +99,7 @@ jobs:
           for d in demo_core demo_pipeline demo_eval demo_agent demo_ingest \
                    demo_service demo_agent2 demo_evalrun demo_agenteval; do
             printf "  %-18s " "$d"
-            python "$d.py" > /dev/null
+            python "demos/$d.py" > /dev/null
             echo "OK"
           done
 
