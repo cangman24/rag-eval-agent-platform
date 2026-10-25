@@ -16,6 +16,7 @@ MCP 工具的三个核心字段（对齐 Model Context Protocol 的 tools 概念
 from __future__ import annotations
 
 import inspect
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
@@ -61,6 +62,41 @@ def _schema_for_annotation(ann: Any) -> Dict[str, Any]:
     return {"type": "string"}
 
 
+# --------------------------------------------------------------------- PEP 563
+# ★ 踩坑记录（2026-10-25，接 MCP 协议层时抓到的潜伏 bug）：
+#
+#   模块一旦写了 `from __future__ import annotations`（PEP 563），
+#   `inspect.signature` 拿到**字符串**注解（"int" 而不是 int）。
+#   `_schema_for_annotation("int")` 查不到 _TYPE_MAP，落入默认
+#   {"type": "string"} —— 于是 rag2_kb_agent/app.py 里
+#   `kb_search(query: str, top_k: int = 3)` 生成的 schema 把 top_k
+#   标成 string，模型传 top_k=5（整数）会被 validate_against_schema
+#   拒绝："参数 top_k 类型应为 string，实际是 int"。
+#   即：**带默认值的 int/float/bool/list 参数全线不可用**，
+#   而 str 参数因为默认值恰好是 string 而看起来正常——最难查的那类。
+#
+#   修复：build_input_schema 前先把字符串注解解析回类型。
+_STRING_ANNOTATION_TYPES = {
+    "str": str, "int": int, "float": float, "bool": bool,
+    "list": list, "dict": dict, "tuple": tuple, "set": set,
+    "List": list, "Dict": dict, "Tuple": tuple, "Set": set,
+    "Sequence": list, "Iterable": list, "Mapping": dict,
+    "Any": str,          # Any 无法表达，按最宽松的 string 处理
+}
+
+
+def _resolve_annotation(ann: Any) -> Any:
+    """PEP 563 字符串注解 -> 类型；已是类型则原样返回。"""
+    if not isinstance(ann, str):
+        return ann
+    s = ann.strip()
+    optional = re.fullmatch(r"(?:Optional|typing\.Optional)\[(.+)\]", s)
+    if optional:
+        s = optional.group(1).strip()
+    base = s.split("[", 1)[0].strip()
+    return _STRING_ANNOTATION_TYPES.get(base, str)
+
+
 def build_input_schema(func: Callable[..., Any]) -> Dict[str, Any]:
     """从函数签名 + docstring 自动生成 JSON Schema。
 
@@ -86,7 +122,7 @@ def build_input_schema(func: Callable[..., Any]) -> Dict[str, Any]:
         ):
             continue
         ann = param.annotation if param.annotation is not inspect.Parameter.empty else str
-        fragment = _schema_for_annotation(ann)
+        fragment = _schema_for_annotation(_resolve_annotation(ann))
         if name in param_docs:
             fragment["description"] = param_docs[name]
         if param.default is not inspect.Parameter.empty:

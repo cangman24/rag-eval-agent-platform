@@ -75,6 +75,39 @@ class TestBuildInputSchema(unittest.TestCase):
         schema = build_input_schema(C.m)
         self.assertEqual(list(schema["properties"]), ["a"])
 
+    def test_pep563_string_annotations(self):
+        """★ 回归：PEP 563 模块（from __future__ import annotations）里
+        注解是字符串，schema 必须仍然正确。
+
+        rag2_kb_agent/app.py 正是这种模块：kb_search(top_k: int = 3)
+        曾生成 type=string，模型传 top_k=5（整数）被 validate 拒绝
+        "参数 top_k 类型应为 string，实际是 int"——而 str 参数因默认值
+        恰好是 string 看起来完全正常（2026-10-25 修）。
+        """
+        def f(query: str, top_k: int = 3, ratio: float = 0.5, flag: bool = False):
+            """混合类型
+
+            query: 关键词
+            top_k: 条数
+            ratio: 阈值
+            flag: 开关
+            """
+        # 模拟 PEP 563：注解全部变成字符串
+        f.__annotations__ = {"query": "str", "top_k": "int",
+                             "ratio": "float", "flag": "bool"}
+        props = build_input_schema(f)["properties"]
+        self.assertEqual(props["query"]["type"], "string")
+        self.assertEqual(props["top_k"]["type"], "integer")
+        self.assertEqual(props["ratio"]["type"], "number")
+        self.assertEqual(props["flag"]["type"], "boolean")
+
+    def test_pep563_optional_string_annotation(self):
+        """Optional[X] 的字符串形态要解析到 X。"""
+        def f(name=None):
+            pass
+        f.__annotations__ = {"name": "Optional[str]"}
+        self.assertEqual(build_input_schema(f)["properties"]["name"]["type"], "string")
+
 
 class TestJsonTypeOk(unittest.TestCase):
     def test_bool_is_not_integer(self):
