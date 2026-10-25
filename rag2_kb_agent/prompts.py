@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Sequence
 
-from core.memory import Message, truncate_tool_result
+from core.memory import truncate_tool_result
 
 # --------------------------------------------------------------------- 模板
 SYSTEM_TEMPLATE = """你是企业知识库助手，通过调用工具完成任务。

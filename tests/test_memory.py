@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """tests/test_memory.py —— 三层记忆 + 上下文压缩单测。全部离线。"""
-import json
 import os
 import sys
 import unittest
@@ -8,7 +7,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.memory import (  # noqa: E402
-    CompressionResult, ContextCompressor, EpisodicMemory, LayeredMemory,
+    ContextCompressor, EpisodicMemory, LayeredMemory,
     Message, Turn, UserProfile, WorkingMemory, truncate_tool_result,
 )
 from core.vectorstore import InMemoryVectorStore, l2_normalize  # noqa: E402

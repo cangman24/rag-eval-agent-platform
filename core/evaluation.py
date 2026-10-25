@@ -17,7 +17,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 from .metrics import (
     aggregate, all_retrieval_metrics, hallucination_rate, latency_stats,

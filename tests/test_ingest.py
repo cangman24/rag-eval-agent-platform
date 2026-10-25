@@ -10,7 +10,7 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.ingest import (  # noqa: E402
-    Chunk, IngestConfig, IngestResult, build_parents, chunk_documents,
+    Chunk, IngestConfig, build_parents, chunk_documents,
     ingest_dir, load_chunks, save_chunks, save_manifest,
 )
 from core.loaders import LoadedDoc  # noqa: E402
@@ -373,7 +373,6 @@ class TestFullPipelineIntegration(unittest.TestCase):
         """
         from core.evaluation import EvalItem, run_retrieval_eval
         from core.pipeline import HybridRetriever, RetrievalConfig
-        from core.retrieval import rrf_fuse
 
         tmp = make_tmp()
         try:

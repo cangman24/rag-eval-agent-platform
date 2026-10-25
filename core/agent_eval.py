@@ -31,7 +31,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from .metrics import aggregate, latency_stats
+from .metrics import latency_stats
 from .retrieval import count_tokens_approx
 
 # 六类指标（与简历一致）
@@ -389,7 +389,7 @@ def aggregate_agent_metrics(rows: Sequence[AgentEvalRow],
                             latencies: Sequence[float]) -> Dict[str, float]:
     """把逐条明细聚合成六类指标。"""
     if not rows:
-        return {k: 0.0 for k in AGENT_METRIC_KEYS}
+        return dict.fromkeys(AGENT_METRIC_KEYS, 0.0)
     n = len(rows)
     lat = latency_stats(latencies) if latencies else {}
     return {

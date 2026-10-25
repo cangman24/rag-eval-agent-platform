@@ -16,7 +16,7 @@ from core.loaders import (  # noqa: E402
     supported_suffixes,
 )
 from core.sse import (  # noqa: E402
-    DEFAULT_HEARTBEAT_S, SSE_MEDIA_TYPE, SSEStream, format_comment,
+    SSE_MEDIA_TYPE, SSEStream, format_comment,
     format_heartbeat, format_sse, iter_sse, parse_sse, stream_agent_events,
 )
 

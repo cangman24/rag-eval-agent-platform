@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """tests/test_judge_runner.py —— LLM-as-Judge + 评测编排单测。全部离线。"""
-import json
 import os
 import shutil
 import sys
@@ -15,7 +14,7 @@ from core.eval_runner import (  # noqa: E402
 )
 from core.evaluation import EvalItem  # noqa: E402
 from core.judge import (  # noqa: E402
-    DIMENSION_HINTS, DIMENSION_LABELS, JUDGE_DIMENSIONS, LLMJudge,
+    DIMENSION_LABELS, JUDGE_DIMENSIONS, LLMJudge,
     clamp_score, context_from_hits, make_context_provider, parse_judge_output,
     build_judge_prompt,
 )

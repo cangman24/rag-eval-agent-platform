@@ -186,13 +186,6 @@ def _clean_heading(head: str) -> str:
     leaf = re.sub(r"^第[零一二三四五六七八九十百\d]+[章节][\s　]*", "", leaf)
     return leaf.strip()
 
-    """兼容不同字段命名，取出 (chunk_id, text, heading_path, source)。"""
-    cid = c.get("chunk_id") or c.get("id") or ""
-    text = c.get("text") or c.get("content") or ""
-    head = c.get("heading_path") or c.get("heading") or ""
-    src = c.get("source") or c.get("doc_id") or (cid.split("#")[0] if cid else "")
-    return cid, text, head, src
-
 
 def gen_term_items(chunks: List[Dict], rnd: random.Random, want: int) -> List[Dict]:
     """术语/编号类：正则从正文里抓出具体数值或公式，问它出自哪里。
@@ -449,7 +442,7 @@ def report(path: str) -> int:
     if not os.path.exists(path):
         print(f"未找到 {path}", file=sys.stderr)
         return 1
-    items = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+    items = [json.loads(line) for line in open(path, encoding="utf-8") if line.strip()]
     by_type: Dict[str, int] = {}
     for it in items:
         by_type[it["type"]] = by_type.get(it["type"], 0) + 1
@@ -512,7 +505,7 @@ def report(path: str) -> int:
         print("✅ 自动体检未发现问题（但人工复核仍然必须做）。")
     print()
     print("复核完成后直接跑消融：")
-    print(f"  conda run -n agent_rag python -m rag1_knowledge_qa.eval \\")
+    print("  conda run -n agent_rag python -m rag1_knowledge_qa.eval \\")
     print(f"      --eval-set {path} --ablation --judge --k-list 5 3 10 --out reports")
     return 0
 

@@ -40,7 +40,7 @@ except ImportError as exc:  # pragma: no cover - 取决于环境
         f"原始错误: {exc}"
     ) from exc
 
-from core.service import RagService, ServiceConfig, _hits_from_retrieval, new_request_id
+from core.service import RagService, _hits_from_retrieval, new_request_id
 from core.sse import SSE_MEDIA_TYPE
 
 # SSE 响应头：关掉中间层缓冲，否则流式会被攒着一起发

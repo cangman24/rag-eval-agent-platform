@@ -72,6 +72,11 @@ reports/demo-*/
 reports/demo_*.md
 reports/ingest_manifest.json
 
+# demos/ 自己目录下的运行时产物（checkpoint / 中间索引 / 演示报告），
+# 由 demo_*.py 重新生成，不入库
+demos/data/
+demos/reports/
+
 # IDE 配置
 .idea/
 .vscode/

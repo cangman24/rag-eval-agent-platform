@@ -60,7 +60,6 @@ def tokenize(text: str, keep_measure: bool = True) -> List[str]:
 
     lowered = text.lower()
     measure_terms = _MEASURE_RE.findall(lowered) if keep_measure else []
-    measure_set = set(measure_terms)
     terms: List[str] = []
 
     if _HAS_JIEBA:

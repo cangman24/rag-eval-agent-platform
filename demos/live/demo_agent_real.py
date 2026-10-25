@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import json
-from core.llm import LLMClient, DiskCache
+from core.llm import LLMClient
 from core.mcp import ToolRegistry
 from core.ingest import load_chunks
 from rag1_knowledge_qa.bootstrap import (
@@ -141,7 +141,7 @@ print(f"\n{'='*60}\n【场景】4. 断点续跑\n{'='*60}")
 
 engine_cp1 = make_engine(max_rounds=1)
 run4 = engine_cp1.run("帮我检索制度的 NDRE 规范并总结", thread_id="T-DEMO-CP")
-print(f"第一段:")
+print("第一段:")
 print(f"  thread_id   = {run4.state.thread_id}")
 print(f"  stop_reason = {run4.state.stop_reason}")
 print(f"  rounds      = {run4.state.rounds}")
@@ -150,7 +150,7 @@ print(f"  answer      = {run4.state.answer[:100]}...")
 
 engine_cp2 = make_engine()
 run5 = engine_cp2.resume("T-DEMO-CP")
-print(f"\n续跑:")
+print("\n续跑:")
 print(f"  thread_id   = {run5.state.thread_id}")
 print(f"  stop_reason = {run5.state.stop_reason}")
 print(f"  rounds      = {run5.state.rounds}")

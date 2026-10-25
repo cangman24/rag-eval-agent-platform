@@ -12,7 +12,6 @@
   5. 统一 dispatch 入口（同一份逻辑可供 HTTP / CLI / 消息队列复用）
 """
 import io
-import json
 import os
 import sys
 from contextlib import redirect_stdout
@@ -22,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.agent import AgentEngine, InMemoryCheckpointer
 from core.mcp import ToolRegistry
 from core.service import (
-    AgentService, RagService, ServiceConfig, dispatch, new_request_id,
+    AgentService, RagService, ServiceConfig, dispatch,
 )
 from core.sse import parse_sse
 from rag1_knowledge_qa.cli import cmd_ask, cmd_health, cmd_retrieve

@@ -3,7 +3,6 @@
 
 全部离线可跑（无网络、无 GPU、无第三方依赖）。
 """
-import json
 import os
 import shutil
 import sys
@@ -29,7 +28,7 @@ def clean_tmp(path: str) -> None:
 
 from core.bm25 import BM25Index  # noqa: E402
 from core.llm import (  # noqa: E402
-    ANSWER_PROMPT, DiskCache, LLMClient, LLMError, NonRetryableError,
+    DiskCache, LLMClient, LLMError, NonRetryableError,
     REFUSAL_MARKER, RetryableError, TokenBucket, build_context,
     build_answer_messages, should_refuse,
 )

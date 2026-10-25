@@ -18,7 +18,7 @@ from core.evaluation import (
     EvalItem, render_ablation_table, run_retrieval_eval, save_eval_set,
     validate_eval_set, write_report,
 )
-from core.pipeline import HybridRetriever, RetrievalConfig, ablation_configs
+from core.pipeline import HybridRetriever, ablation_configs
 from core.retrieval import recursive_chunk
 from core.text import tokenize
 from core.vectorstore import InMemoryVectorStore, l2_normalize
@@ -162,7 +162,7 @@ write_report(
     reports[-1], report_path,
     extra_sections={"消融对比（四档配置）": render_ablation_table(reports)},
 )
-print(f"\n详细报告已写入 reports/demo_ablation.md")
+print("\n详细报告已写入 reports/demo_ablation.md")
 
 print()
 print("=" * 78)

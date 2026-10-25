@@ -40,7 +40,7 @@ def percentile(sorted_vals, p):
 
 def main() -> int:
     eval_set = sys.argv[1] if len(sys.argv) > 1 else "data/eval/eval.jsonl"
-    items = [json.loads(l) for l in open(eval_set, encoding="utf-8") if l.strip()]
+    items = [json.loads(line) for line in open(eval_set, encoding="utf-8") if line.strip()]
     service = build_production_service()
 
     ans, unans = [], []

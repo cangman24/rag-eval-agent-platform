@@ -22,7 +22,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.agent import (
-    AgentEngine, EventType, InMemoryCheckpointer, JsonFileCheckpointer,
+    AgentEngine, EventType, JsonFileCheckpointer,
 )
 from core.bm25 import BM25Index
 from core.mcp import ToolError, ToolRegistry
@@ -153,7 +153,7 @@ engine = make_engine([
 ])
 run = engine.run("工单 T-100 的关闭流程是否合规？", thread_id="demo-1")
 
-log(f"任务: 工单 T-100 的关闭流程是否合规？")
+log("任务: 工单 T-100 的关闭流程是否合规？")
 log(f"意图识别 -> task_type={run.state.task_type}")
 log(f"白名单   -> {run.state.allowed_tools}")
 log(f"执行计划 -> {run.state.plan}")

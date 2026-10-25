@@ -43,6 +43,7 @@ class BgeReranker:
         ).to(self.device)
         scores = self.model(**enc).logits.squeeze(-1).cpu().numpy()
         # ★ 用 doc_ids 而不是 texts_p 组装返回值
-        scored = list(zip(doc_ids, scores.tolist()))
+        # ★ strict=True：模型输出的分数必须与入参 doc_ids 一一对应
+        scored = list(zip(doc_ids, scores.tolist(), strict=True))
         scored.sort(key=lambda x: (-x[1], x[0]))
         return scored

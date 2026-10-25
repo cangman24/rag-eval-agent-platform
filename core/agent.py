@@ -108,7 +108,7 @@ class AgentState:
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "AgentState":
-        known = {f for f in AgentState.__dataclass_fields__}  # type: ignore[attr-defined]
+        known = set(AgentState.__dataclass_fields__)  # type: ignore[attr-defined]
         return AgentState(**{k: v for k, v in (d or {}).items() if k in known})
 
     def elapsed_s(self, clock: Optional[Callable[[], float]] = None) -> float:
@@ -363,7 +363,7 @@ class AgentEngine:
                     emit(EventType.VERIFY, ok=ok, reason=reason)
                     if ok:
                         state.finished = True
-                        state.stop_reason = "answer"  
+                        state.stop_reason = "answer"
                         emit(EventType.ANSWER, text=answer,
                              citations=state.citations)
                         self._save(state)

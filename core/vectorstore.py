@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import math
 import os
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 
 def l2_normalize(vec: Sequence[float]) -> List[float]:
@@ -27,7 +27,8 @@ def l2_normalize(vec: Sequence[float]) -> List[float]:
 
 
 def dot(a: Sequence[float], b: Sequence[float]) -> float:
-    return float(sum(x * y for x, y in zip(a, b)))
+    # 长度不等是调用方错误，strict 让它立即暴露而不是静默截断
+    return float(sum(x * y for x, y in zip(a, b, strict=True)))
 
 
 class BaseVectorStore:
@@ -171,7 +172,9 @@ class ChromaVectorStore(BaseVectorStore):
         ids = (res.get("ids") or [[]])[0]
         dists = (res.get("distances") or [[]])[0]
         # cosine 空间下 distance = 1 - similarity
-        return [(doc_id, 1.0 - float(d)) for doc_id, d in zip(ids, dists)]
+        # ★ 这里刻意用 strict=False：向量库返回的 distances 可能短于 ids，
+        #   查询路径不该因为后端多退少补就整体失败（宁缺勿错）
+        return [(doc_id, 1.0 - float(d)) for doc_id, d in zip(ids, dists, strict=False)]
 
     def get(self, doc_id):
         res = self.collection.get(ids=[doc_id], include=["documents", "metadatas", "embeddings"])

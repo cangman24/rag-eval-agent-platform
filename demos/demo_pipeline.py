@@ -23,8 +23,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.bm25 import BM25Index
-from core.llm import REFUSAL_MARKER, should_refuse
-from core.metrics import all_retrieval_metrics, aggregate, hallucination_rate
+from core.llm import should_refuse
+from core.metrics import all_retrieval_metrics, aggregate
 from core.retrieval import recursive_chunk, rrf_fuse
 from core.text import tokenize
 from core.vectorstore import InMemoryVectorStore, l2_normalize

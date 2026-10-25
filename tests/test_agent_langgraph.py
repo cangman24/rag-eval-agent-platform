@@ -23,10 +23,24 @@
       ✅ checkpoint 是否在每一步之后落盘
       ❌ 不覆盖：真 langgraph 的函数签名差异、状态合并语义差异
 
-    所以真机第一件事是跑：
+    ★ 2026-10-25 更新：真库路径已由本文件末尾的 `TestRealLangGraph` 覆盖
+      （langgraph 0.2.28 实测）。补真库测试之前，先跑真机冒烟，**当场抓出两个
+      Fake 永远发现不了的真 bug**：
 
-        python -c "from core.agent_langgraph import langgraph_available; \\
-                   print(langgraph_available())"
+        ① `StateGraph(dict)` —— 裸 dict 让真库无法推断状态通道，输入字典的键
+           （如 query）根本不进状态，第一节点读 state["query"] 直接 KeyError。
+           Fake 的 `cur.update(updates)` 全量合并语义掩盖了它。
+           修复：TypedDict 显式声明全部状态键（见 AgentGraphState 踩坑记录）。
+        ② 节点名与状态键同名 —— 真库 add_node 拒绝 "plan"（状态键已占用），
+           编译期 ValueError。节点改名 make_plan。
+
+      两个 bug 的共同点：**都是"真库才有的约束"**。这验证了替身策略的边界——
+      替身保逻辑，真库测试保 API 契约，两者都不能省。
+
+    真机验证命令：
+        conda run -n agent_rag python -m unittest tests.test_agent_langgraph -v
+        # 预期：35 个离线测试 + TestRealLangGraph 全部通过
+        # CI（零依赖环境）上 TestRealLangGraph 自动跳过，其余 35 个照常跑
 """
 import os
 import sys
@@ -35,7 +49,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.agent import (  # noqa: E402
-    AgentRun, AgentState, EventType, InMemoryCheckpointer, JsonFileCheckpointer,
+    EventType, InMemoryCheckpointer, JsonFileCheckpointer,
 )
 from core.agent_langgraph import (  # noqa: E402
     LangGraphAgentEngine, langgraph_available, make_agent_engine,
@@ -188,8 +202,12 @@ ROUTE = {"full_review": ["kb_search", "ticket_query"],
 
 
 def make_engine(decisions, route_table=None, clock=None, checkpointer=None,
-                registry_log=None, **kw):
-    """构造带脚本化决策的 LangGraph 版引擎。"""
+                registry_log=None, real_langgraph=False, **kw):
+    """构造带脚本化决策的 LangGraph 版引擎。
+
+    real_langgraph=True 时不注入假图，走真 langgraph（仅真机测试用）；
+    CI 零依赖环境保持默认 False。
+    """
     reg = make_registry(registry_log)
     cursor = {"i": 0}
     calls = {"n": 0}
@@ -212,7 +230,7 @@ def make_engine(decisions, route_table=None, clock=None, checkpointer=None,
         act_fn=act,
         route_table=route_table if route_table is not None else ROUTE,
         checkpointer=checkpointer,
-        graph_factory=fake_graph_factory,
+        graph_factory=None if real_langgraph else fake_graph_factory,
         **kw,
     )
     engine._act_calls = lambda: calls["n"]
@@ -581,7 +599,6 @@ class TestFactory(unittest.TestCase):
 
     def test_factory_returns_engine_with_same_api(self):
         """★ 两版引擎的公开 API 必须一致 —— 业务代码才能无感切换。"""
-        from core.agent import AgentEngine
         eng = make_agent_engine(
             prefer_langgraph=False, registry=make_registry(),
             intent_fn=lambda q: "spec_inquiry", plan_fn=lambda q, t: [],
@@ -629,6 +646,191 @@ class TestFactory(unittest.TestCase):
         self.assertEqual(a.state.answer, b.state.answer)
         self.assertEqual(a.state.citations, b.state.citations)
         self.assertEqual(a.state.finished, b.state.finished)
+
+
+# ================================================================== 真库验证
+@unittest.skipUnless(
+    langgraph_available(),
+    "langgraph 未安装 —— CI 零依赖环境预期跳过；真机（conda env agent_rag）应运行",
+)
+class TestRealLangGraph(unittest.TestCase):
+    """★ 真 langgraph 驱动的引擎测试（2026-10-25 新增）。
+
+    以上 35 个测试全部经 `_FakeStateGraph` 注入驱动，验证的是**逻辑接线**；
+    这个类验证**真库 API 契约**——两类风险不同，都不能省：
+
+        ① 真 StateGraph(TypedDict) 的状态合并语义（LastValue 逐键覆盖）
+        ② 真 add_node 的命名约束（不能与状态键同名）
+        ③ 真 stream() 的 chunk 形态（{node: updates}）
+        ④ 真 compile() 的图校验与 get_graph() 的节点枚举
+        ⑤ 真库递归上限下循环边不会提前炸
+
+    运行前提：`pip install langgraph`（本机 agent_rag 环境已装 0.2.28）。
+    CI 零依赖环境自动跳过——这正是"业务逻辑与框架解耦"的代价与证据。
+    """
+
+    def test_compiled_graph_is_real_langgraph(self):
+        eng = make_engine([{"final": "x"}], real_langgraph=True)
+        mod = type(eng._graph).__module__
+        self.assertTrue(mod.startswith("langgraph"),
+                        f"真库路径拿到的应是 langgraph 编译图，实际是 {mod}")
+
+    def test_single_final_answer(self):
+        eng = make_engine([{"final": "复核流程见第三章", "citations": ["c1"]}],
+                          real_langgraph=True)
+        run = eng.run("复核流程是什么")
+        self.assertEqual(run.state.answer, "复核流程见第三章")
+        self.assertEqual(run.state.citations, ["c1"])
+        self.assertEqual(run.state.rounds, 1)
+        self.assertTrue(run.state.finished)
+        types = [e["type"] for e in run.events]
+        self.assertEqual(types[0], "start")
+        self.assertIn("done", types)
+
+    def test_tool_then_answer_full_flow(self):
+        log = []
+        eng = make_engine([
+            {"tool": "kb_search", "args": {"query": "复核"}},
+            {"final": "第三章规定了复核流程 [1]", "citations": ["c1"]},
+        ], registry_log=log, real_langgraph=True)
+        run = eng.run("复核流程是什么")
+        self.assertEqual(run.state.tool_calls, 1)
+        self.assertEqual(run.state.rounds, 2)
+        self.assertIn("第三章", run.state.answer)
+        ok_calls = [s for s in run.state.scratchpad
+                    if s.get("type") == "tool_call" and s.get("ok")]
+        self.assertEqual(len(ok_calls), 1)
+        self.assertEqual(ok_calls[0]["tool"], "kb_search")
+        self.assertIn(("kb_search", "复核"), log)
+        types = [e["type"] for e in run.events]
+        self.assertEqual(types, ["start", "intent", "plan", "tool_call",
+                                 "tool_result", "answer", "verify", "done"])
+
+    def test_real_stream_chunk_shape(self):
+        """真 stream() 逐节点产出 {node: updates} —— run() 依赖这个形态。"""
+        eng = make_engine([{"final": "答案"}], real_langgraph=True)
+        init = {"query": "q", "thread_id": "t1", "task_type": "general",
+                "allowed_tools": [], "plan": [], "scratchpad": [], "rounds": 0,
+                "tool_calls": 0, "started_at": 0.0, "answer": "", "citations": [],
+                "verified": False, "verify_reason": "", "refused": False,
+                "finished": False, "stop_reason": "", "last_observation": None,
+                "pending": None}
+        chunks = list(eng._graph.stream(init))
+        self.assertTrue(chunks, "stream 不应为空")
+        for chunk in chunks:
+            self.assertIsInstance(chunk, dict)
+            for node, updates in chunk.items():
+                self.assertIsInstance(node, str)
+                self.assertIsInstance(updates, dict)
+
+    def test_whitelist_block_not_consume_budget(self):
+        """spec_inquiry 只允许 kb_search；调 ticket_query 应被拦且不耗预算。"""
+        eng = make_engine([
+            {"tool": "ticket_query", "args": {"ticket_id": "T-1"}},
+            {"final": "查不到就走回答", "citations": []},
+        ], real_langgraph=True)
+        run = eng.run("制度是什么")   # intent -> spec_inquiry
+        self.assertEqual(run.state.tool_calls, 0)
+        blocked = [s for s in run.state.scratchpad if s.get("blocked")]
+        self.assertEqual(len(blocked), 1)
+        errs = [e for e in run.events
+                if e["type"] == "tool_error" and e["data"].get("blocked")]
+        self.assertEqual(len(errs), 1)
+
+    def test_fuse_max_rounds(self):
+        eng = make_engine([{"tool": "kb_search", "args": {"query": "x"}}],
+                          max_rounds=2, real_langgraph=True)
+        run = eng.run("制度是什么")
+        self.assertEqual(run.state.stop_reason, "max_rounds")
+        self.assertEqual(run.state.rounds, 2)
+        self.assertLessEqual(run.state.tool_calls, 2)
+
+    def test_verify_failure_retries_once(self):
+        """verify 不通过 -> 回 act 再试（真库条件边 + 循环边）。"""
+        eng = make_engine([
+            {"final": "第一次回答"},
+            {"final": "第二次回答"},
+        ], real_langgraph=True,
+            verify_fn=lambda s, a: (False, "第一遍必挂") if s.rounds == 1
+            else (True, "通过"))
+        run = eng.run("制度是什么")
+        self.assertEqual(run.state.rounds, 2)
+        self.assertEqual(run.state.answer, "第二次回答")
+        self.assertTrue(run.state.verified)
+
+    def test_tool_exception_recorded_not_fatal(self):
+        """工具抛异常应记录为失败并继续，而不是整轮崩掉。
+
+        参数逐轮变化，避免先撞上 loop_detected 测不到这条路径
+        （与 Fake 版同名测试同样的坑）。
+        """
+        n = {"i": 0}
+
+        def act(state, allowed):
+            n["i"] += 1
+            if n["i"] <= 2:
+                return {"tool": "boom", "args": {"x": f"try{n['i']}"}}
+            return {"final": "工具炸了也能收尾", "citations": []}
+
+        eng = make_engine([act], route_table={"spec_inquiry": ["boom"]},
+                          real_langgraph=True)
+        run = eng.run("制度是什么")
+        self.assertEqual(run.state.answer, "工具炸了也能收尾")
+        failed = [s for s in run.state.scratchpad
+                  if s.get("type") == "tool_call" and s.get("ok") is False]
+        self.assertEqual(len(failed), 2)
+        self.assertIn("RuntimeError", failed[0]["error"])
+
+    def test_checkpoint_saved_and_resume_finished(self):
+        from core.agent import InMemoryCheckpointer
+        cp = InMemoryCheckpointer()
+        eng = make_engine([{"final": "答案", "citations": ["c1"]}],
+                          checkpointer=cp, real_langgraph=True)
+        run = eng.run("制度是什么", thread_id="T-real")
+        self.assertTrue(run.state.finished)
+        self.assertIsNotNone(cp.load("T-real"))
+        resumed = eng.resume("T-real")
+        reasons = [e["data"].get("reason") for e in resumed.events
+                   if e["type"] == "done"]
+        self.assertIn("已完成的检查点，无需续跑", reasons)
+
+    def test_graph_topology_via_real_get_graph(self):
+        eng = make_engine([{"final": "x"}], real_langgraph=True)
+        nodes = eng.graph_nodes()
+        for n in (eng.N_INTENT, eng.N_PLAN, eng.N_ACT, eng.N_TOOLS,
+                  eng.N_VERIFY, eng.N_FINALIZE):
+            self.assertIn(n, nodes)
+
+    def test_factory_and_describe_on_real_path(self):
+        eng = make_agent_engine(
+            prefer_langgraph=True,
+            registry=make_registry(),
+            intent_fn=lambda q: "spec_inquiry",
+            plan_fn=lambda q, t: ["p"],
+            act_fn=lambda s, a: {"final": "x"},
+            route_table=ROUTE,
+        )
+        self.assertIsInstance(eng, LangGraphAgentEngine)
+        d = eng.describe()
+        self.assertTrue(d["langgraph_available"])
+        self.assertEqual(len(d["nodes"]), 6)
+
+    def test_node_name_collides_with_state_key_regression(self):
+        """★ 回归：节点名不能与 AgentGraphState 的键同名。
+
+        真 langgraph 的 add_node 会抛 ValueError（状态键已占用）。
+        改名 make_plan 修复过一次，这里把约束钉住：
+        六个节点名与全部状态键求交，必须为空。
+        """
+        from core.agent_langgraph import AgentGraphState
+        node_names = {LangGraphAgentEngine.N_INTENT,
+                      LangGraphAgentEngine.N_PLAN,
+                      LangGraphAgentEngine.N_ACT,
+                      LangGraphAgentEngine.N_TOOLS,
+                      LangGraphAgentEngine.N_VERIFY,
+                      LangGraphAgentEngine.N_FINALIZE}
+        state_keys = set(AgentGraphState.__annotations__)
+        self.assertEqual(node_names & state_keys, set())
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import importlib
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypedDict
 
 from .agent import (
     DEFAULT_MAX_ROUNDS, DEFAULT_MAX_TOOL_CALLS, DEFAULT_TOTAL_TIMEOUT_S,
@@ -40,6 +40,50 @@ from .agent import (
     make_event,
 )
 from .mcp import ToolRegistry
+
+
+# --------------------------------------------------------------------- 状态 schema
+class AgentGraphState(TypedDict, total=False):
+    """LangGraph 图的状态 schema —— ★ 必须显式声明每一个键。
+
+    ★ 踩坑记录（2026-10-25，真库验证时抓到的第一个真 bug）：
+
+        初版写的是 `StateGraph(dict)`。用 FakeStateGraph 驱动的 35 个测试
+        全绿，但装上真 langgraph 0.2.28 一跑，第一个节点就
+        `KeyError: 'query'`。
+
+        原因：裸 `dict` 类型让 langgraph **无法推断状态通道**——
+        输入字典里的键不会被写进状态，只有"节点返回过的键"才会成为通道。
+        于是 `_node_intent` 读 `state["query"]` 时那个键根本不存在。
+
+        Fake 替身当年恰好掩盖了它：替身用 `cur.update(updates)` 全量合并，
+        输入原样透传，与真库的"按通道合并"语义不同。
+
+        修复：TypedDict 显式声明全部键（total=False 允许部分更新），
+        真库据此建通道，输入正确注入，节点返回值按 LastValue 逐键合并——
+        与自实现引擎的语义对齐。
+
+    教训：**"离线可测的替身"降低的是环境成本，不是语义差异风险**；
+    替身与真库的合并语义差异，只能靠真库路径的测试来守。
+    """
+    query: str
+    thread_id: str
+    task_type: str
+    allowed_tools: List[str]
+    plan: List[str]
+    scratchpad: List[Dict[str, Any]]
+    rounds: int
+    tool_calls: int
+    started_at: float
+    answer: str
+    citations: List[str]
+    verified: bool
+    verify_reason: str
+    refused: bool
+    finished: bool
+    stop_reason: str
+    last_observation: Any
+    pending: Any
 
 
 # --------------------------------------------------------------------- 依赖探测
@@ -84,9 +128,11 @@ class LangGraphAgentEngine:
         verify --(不通过)--> act
     """
 
-    # 节点名（同时作为 langgraph 的 node id）
+    # 节点名（同时作为 langgraph 的 node id）。
+    # ★ N_PLAN 不能叫 "plan"：真 langgraph 的 add_node 拒绝与状态键同名的
+    #   节点（AgentGraphState.plan 已占用这个名字），编译期直接 ValueError。
     N_INTENT = "intent"
-    N_PLAN = "plan"
+    N_PLAN = "make_plan"
     N_ACT = "act"
     N_TOOLS = "tools"
     N_VERIFY = "verify"
@@ -167,7 +213,7 @@ class LangGraphAgentEngine:
         else:
             StateGraph, END = _load_stategraph()
 
-        builder = StateGraph(dict)
+        builder = StateGraph(AgentGraphState)
         builder.add_node(self.N_INTENT, self._node_intent)
         builder.add_node(self.N_PLAN, self._node_plan)
         builder.add_node(self.N_ACT, self._node_act)
@@ -235,7 +281,7 @@ class LangGraphAgentEngine:
           踩坑记录：初版这里写了 `state["rounds"] = state.get(...) + 1`，
           既原地改了输入、又从来不在返回里带上 rounds —— 于是轮次永远停在 0，
            `max_rounds` 熔断、`loop_detected`、时间超时**全部失效**，
-           `_pending` 也因为只写在原地而丢失，导致 tools 节点什么都取不到。
+           `pending` 也因为只写在原地而丢失，导致 tools 节点什么都取不到。
           18 个测试同时红就是这个原因。
           教训：图的节点契约是「in -> updates」，不是「in-place mutation」。
           真实 langgraph 同样会把节点返回值当作状态更新合并 —— 原地修改要么被丢、
@@ -265,20 +311,20 @@ class LangGraphAgentEngine:
             cites = list(decision.get("citations") or [])
             self._emit(EventType.ANSWER, text=answer[:200], citations=cites)
             return {"answer": answer, "citations": cites, "rounds": rounds,
-                    "_pending": None}
+                    "pending": None}
 
         if decision.get("error"):
             self._emit(EventType.ERROR, message=str(decision["error"]))
             return {"answer": str(decision.get("final") or ""), "rounds": rounds,
-                    "stop_reason": "act_error", "_pending": None}
+                    "stop_reason": "act_error", "pending": None}
 
         self._emit(EventType.TOOL_CALL, tool=decision.get("tool"),
                    args=decision.get("args") or {})
-        return {"rounds": rounds, "_pending": decision}
+        return {"rounds": rounds, "pending": decision}
 
     def _node_tools(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """工具执行节点：白名单硬校验 + 调用 + 记录。纯函数，只返回更新。"""
-        decision = state.get("_pending") or {}
+        decision = state.get("pending") or {}
         tool = decision.get("tool")
         args = decision.get("args") or {}
         allowed = list(state.get("allowed_tools", []))
@@ -292,11 +338,11 @@ class LangGraphAgentEngine:
                                "sig": f"{tool}:blocked"})
             self._emit(EventType.TOOL_ERROR, tool=tool, blocked=True,
                        message=f"工具 {tool} 不在当前意图的允许清单 {allowed} 内")
-            return {"scratchpad": scratchpad, "_pending": None}
+            return {"scratchpad": scratchpad, "pending": None}
 
         if tool_calls >= self.max_tool_calls:
             self._emit(EventType.LIMIT, reason="max_tool_calls")
-            return {"stop_reason": "max_tool_calls", "_pending": None}
+            return {"stop_reason": "max_tool_calls", "pending": None}
 
         try:
             result = self.registry.call(tool, args)
@@ -307,7 +353,7 @@ class LangGraphAgentEngine:
                 "sig": f"{tool}:{sorted((str(k), str(v)) for k, v in args.items())}",
             })
             self._emit(EventType.TOOL_RESULT, tool=tool, ok=True)
-            return {"scratchpad": scratchpad, "_pending": None,
+            return {"scratchpad": scratchpad, "pending": None,
                     "tool_calls": tool_calls + 1, "last_observation": result}
         except Exception as exc:  # noqa: BLE001 - 工具异常不该让整轮崩掉
             scratchpad.append({
@@ -317,7 +363,7 @@ class LangGraphAgentEngine:
             })
             self._emit(EventType.TOOL_ERROR, tool=tool, blocked=False,
                        message=str(exc))
-            return {"scratchpad": scratchpad, "_pending": None,
+            return {"scratchpad": scratchpad, "pending": None,
                     "tool_calls": tool_calls + 1}
 
     def _node_verify(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -397,7 +443,7 @@ class LangGraphAgentEngine:
             "finished": False,
             "stop_reason": "",
             "last_observation": None,
-            "_pending": None,
+            "pending": None,
         }
 
         # 续跑：把检查点状态灌回初始状态

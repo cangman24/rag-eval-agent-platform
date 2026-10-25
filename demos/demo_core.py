@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """演示：中文规范文档的切分与 heading_path 保留效果。"""
-import io, os, sys
+import io
+import os
+import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.retrieval import recursive_chunk, rrf_fuse
 

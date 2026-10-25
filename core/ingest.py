@@ -26,11 +26,11 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .bm25 import BM25Index
 from .loaders import LoadedDoc, load_dir, summarize_load
-from .retrieval import count_tokens_approx, recursive_chunk
+from .retrieval import recursive_chunk
 from .vectorstore import InMemoryVectorStore
 
 
@@ -249,7 +249,8 @@ def ingest_dir(
             )
         # 只对向量化成功的块建索引：坏块不进库，避免检索出空文本
         good_chunks, good_vectors = [], []
-        for c, v in zip(chunks, vectors):
+        # ★ strict=True：向量由 chunks 一一生成，长度不等就是 bug，不该静默截断
+        for c, v in zip(chunks, vectors, strict=True):
             if v is None:
                 emb_errors.append({"chunk_id": c.chunk_id, "error": "嵌入为空"})
                 continue

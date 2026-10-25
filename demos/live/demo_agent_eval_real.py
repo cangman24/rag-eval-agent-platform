@@ -25,7 +25,6 @@ from rag2_kb_agent.app import (
     build_tool_calling_ablation_engine,
     rule_based_intent,
     rule_based_plan,
-    DEFAULT_ROUTE_TABLE,
 )
 
 # ============ 1. 加载索引 ============
@@ -97,14 +96,14 @@ llm = LLMClient(
 reports = []
 for cfg in agent_ablation_configs():
     print(f"\n[跑评测] {cfg.name} ({cfg.label()}) ...")
-    
+
         # 删掉 route_table 传参
     engine = build_tool_calling_ablation_engine(
         llm, reg, cfg,
         intent_fn=rule_based_intent,
         plan_fn=rule_based_plan,
     )
-    
+
     # ★ 核心修复：run_fn 必须返回原生 AgentRun 对象
     report = run_agent_eval(
         tasks,

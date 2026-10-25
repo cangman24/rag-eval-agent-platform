@@ -4,7 +4,6 @@
 ★ 这一层是"框架无关"的，所以即使沙箱里没有 fastapi，业务逻辑也能全量验证。
   FastAPI 的接线在 rag1_knowledge_qa/api_fastapi.py，只是薄薄一层。
 """
-import json
 import os
 import sys
 import unittest
@@ -490,7 +489,7 @@ class TestServiceIntegration(unittest.TestCase):
         import shutil
         import uuid
         from core.ingest import IngestConfig, ingest_dir
-        from core.pipeline import HybridRetriever, RetrievalConfig
+        from core.pipeline import HybridRetriever
         from core.vectorstore import l2_normalize
         from core.text import tokenize
 

@@ -40,7 +40,6 @@ from .evaluation import (
     render_failure_cases, render_type_table, run_answer_eval,
     run_retrieval_eval, save_eval_set, validate_eval_set, write_report,
 )
-from .metrics import aggregate, latency_stats
 
 
 # --------------------------------------------------------------------- 指纹
@@ -431,7 +430,7 @@ def compare_runs(run_a: str, run_b: str) -> str:
 
     ma, mb = load(run_a), load(run_b)
     keys = ["hit@5", "mrr@5", "recall@5", "precision@5", "ndcg@5"]
-    lines = [f"# 两次评测对比", "",
+    lines = ["# 两次评测对比", "",
              f"- A（基线）：`{ma['run_id']}` @ {ma['timestamp']}",
              f"- B（对照）：`{mb['run_id']}` @ {mb['timestamp']}", ""]
     ra = {r["config"]: r["overall"] for r in ma.get("results", [])}

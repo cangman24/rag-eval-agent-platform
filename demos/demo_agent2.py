@@ -25,7 +25,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.agent import EventType, InMemoryCheckpointer
+from core.agent import EventType
 from core.bm25 import BM25Index
 from core.mcp import ToolRegistry
 from core.memory import ContextCompressor, LayeredMemory
