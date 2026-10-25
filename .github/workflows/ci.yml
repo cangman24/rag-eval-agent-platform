@@ -3,16 +3,26 @@
 #
 # ★ 这个 workflow 的核心卖点是**它跑得极快**，而这个快是有设计依据的：
 #
-#   全库 765 项单测零第三方依赖，约 1.2 秒跑完。
-#   所以 CI 里**不需要装 torch**（2.5GB）、不需要下模型、不需要 API Key，
-#   也不需要开数据库服务。整个 job 通常 30 秒内结束。
+#   全库 807 项单测零第三方依赖（CI 零依赖环境自动跳过 12 项 LangGraph
+#   真库测试）。所以 CI 里**不需要装 torch**（2.5GB）、不需要下模型、
+#   不需要 API Key，也不需要开数据库服务。ubuntu job 约 10 秒、
+#   Windows runner 约 1 分钟内结束（含 checkout 与 runner 启动）。
 #
 #   这不是"省 CI 分钟数"的小聪明，而是一个可验证的架构主张：
 #   **业务逻辑与外部依赖解耦到「换掉 torch 也不影响测试」的程度。**
 #   面试时可以直接把这条 workflow 打开给人看。
 #
 #   代价也说清楚：torch / chromadb / langgraph 这些可选依赖的**真实行为**
-#   不在 CI 覆盖范围内，必须在本地机器上验证（见 README 的"未验证项"）。
+#   不在 CI 覆盖范围内，必须在本机验证（真机命令见 README 的"未验证项"）。
+#
+# ★ 本文件踩过的坑（都在 Actions 历史上真实红过）：
+#   ① Windows runner 的 stdout 默认 cp1252，打印中文直接
+#      UnicodeEncodeError 挂掉整个 step —— 靠 workflow 级 env
+#      （PYTHONIOENCODING=utf-8）解决；语法扫描的输出也改成 ASCII 双保险。
+#   ② 零依赖 job 开 `cache: pip`：无清单可缓存，setup-python 的 Post 步骤
+#      报错把全绿的 job 标红 —— 假阳性，比红更难查。已移除。
+#   ③ 被 continue-on-error 掩盖的 lint 失败会让"CI 全绿"不可信 —— 已取消，
+#       ruff 版本固定，升级是主动动作而非被动惊喜。
 # ---------------------------------------------------------------------------
 name: CI
 
@@ -28,6 +38,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# ★ Windows runner 上 Python 的 stdout 默认用 cp1252，打印中文会直接
+#   UnicodeEncodeError 挂掉整个 step（本项目脚本与测试 docstring 有中文）。
+#   设 UTF-8 是最省事且无害的解法。注意 stderr 默认 backslashreplace 不崩，
+#   所以只有写 stdout 的步骤（如语法扫描）会中招——更难想到。
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: "1"
+
 jobs:
   # ============================================================ 主测试
   test:
@@ -36,17 +54,21 @@ jobs:
     strategy:
       fail-fast: false          # 一个平台挂了也要看另一个的结果
       matrix:
-        # Windows 是主要目标平台（开发机），Linux 是为了确认没有平台耦合
-        os: [ubuntu-latest, windows-latest]
+        # Windows 是主要目标平台（开发机），Linux 是为了确认没有平台耦合。
+        # ubuntu 固定 24.04：GitHub 已宣布 ubuntu-latest 将迁移到 Ubuntu 26
+        # （2026-10-19 起），固定版本号保证 CI 环境不会静默漂移。
+        os: [ubuntu-24.04, windows-latest]
         python-version: ["3.10", "3.11"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
+          # ★ 不开 pip 缓存：本 job 刻意**什么都不装**（见下一步的说明），
+          #   缓存既无收益，它的 Post 步骤还会因为找不到依赖清单而报错，
+          #   把整个 job 标记成失败 —— 一个"看起来是代码问题"的假阳性。
 
       # ★ 故意不装 torch / chromadb / langgraph / fastapi。
       #   如果测试需要它们才能过，说明核心逻辑被外部依赖污染了 ——
@@ -60,6 +82,7 @@ jobs:
           python -m unittest tests.test_judge_runner tests.test_eval_cli tests.test_agent_eval -v
           python -m unittest tests.test_agent tests.test_agent_langgraph tests.test_memory -v
           python -m unittest tests.test_service tests.test_loaders_sse tests.test_ingest tests.test_cli tests.test_decisions -v
+          python -m unittest tests.test_mcp_server tests.test_mcp_client tests.test_engineering_config -v
         shell: bash
 
       - name: 语法全库扫描（含 __init__.py 的 BOM 问题）
@@ -78,7 +101,8 @@ jobs:
                       except SyntaxError as e:
                           bad += 1
                           print(f'{p}:{e.lineno}: {e.msg}')
-          print('语法错误文件数:', bad)
+          # 输出用 ASCII：不依赖 runner 的 stdout 编码（cp1252 的教训）
+          print('syntax errors:', bad)
           sys.exit(1 if bad else 0)
           PY
         shell: bash
@@ -86,10 +110,10 @@ jobs:
   # ============================================================ demo 冒烟
   demos:
     name: demo 冒烟（每个 demo 必须 exit 0）
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
@@ -97,7 +121,7 @@ jobs:
         run: |
           set -e
           for d in demo_core demo_pipeline demo_eval demo_agent demo_ingest \
-                   demo_service demo_agent2 demo_evalrun demo_agenteval; do
+                   demo_service demo_agent2 demo_evalrun demo_agenteval demo_mcp; do
             printf "  %-18s " "$d"
             python "demos/$d.py" > /dev/null
             echo "OK"
@@ -106,10 +130,10 @@ jobs:
   # ============================================================ 可复现性
   reproducibility:
     name: 可复现性（语料生成确定性 + 评测集体检）
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
@@ -160,22 +184,26 @@ jobs:
   # ============================================================ 静态检查
   lint:
     name: ruff 静态检查
-    runs-on: ubuntu-latest
-    continue-on-error: true     # 不阻断主流程；先让它可见，再逐步收紧
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.10"
-      - run: pip install ruff
+      # ★ ruff 版本必须固定：不固定的话，官方某次发版新增的检查项会让一个
+      #   「没人改过的仓库」突然变红——这种红与代码质量无关，只是噪音。
+      #   升级应该是主动动作（改这一行 + 本地先跑一遍），而不是被动惊喜。
+      - run: pip install ruff==0.17.2
+      # ★ 这里故意不用 continue-on-error：lint 失败就必须让整个 run 红。
+      #   被掩盖的红比红本身更糟——它让"CI 全绿"变成一句不可信的话。
       - run: ruff check . --output-format=github
 
   # ============================================================ 密钥防护
   secret-guard:
     name: 密钥防护（.env 绝不能进版本库）
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0        # 需要全量历史才能扫"曾经提交过"
 
