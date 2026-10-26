@@ -26,6 +26,7 @@
 """
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -79,14 +80,15 @@ def main():
     # ---------------------------------------------------------------- 真文件
     from tools.make_demo_pdf import build_demo_pdf
 
-    tmp = os.path.join(ROOT, "demos", "data")
-    os.makedirs(tmp, exist_ok=True)
+    # 用临时目录：PDF 与 gt 都是**运行时产物**，不该落进仓库
+    # （第一版写进 demos/data/，结果 gt json 被 git 跟踪了）
+    tmp = tempfile.mkdtemp(prefix="doc_vision_demo_")
     pdf_path = os.path.join(tmp, "doc_vision_demo.pdf")
     gt_path = os.path.join(tmp, "doc_vision_demo_gt.json")
 
     log("\n[1] 生成带 ground truth 的迷你 PDF（纯标准库，无第三方依赖）")
     gt = build_demo_pdf(pdf_path, gt_path)
-    log(f"  文件: {os.path.relpath(pdf_path, ROOT)}")
+    log(f"  文件: {pdf_path}（临时目录，跑完即弃）")
     log(f"  gt: 标题「{gt['title']}」/ 表格 {len(gt['table'])} 行 "
         f"/ 柱状图 {len(gt['bars'])} 根")
 
@@ -177,10 +179,6 @@ def _write_output():
     path = os.path.join(ROOT, "demo_doc_vision_output.txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(OUT))
-    try:
-        os.remove(os.path.join(ROOT, "demos", "data", "doc_vision_demo.pdf"))
-    except OSError:
-        pass
 
 
 def _report():
