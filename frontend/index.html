@@ -561,9 +561,11 @@
     citesEl.style.display = "";
     citesEl.innerHTML = '<div class="cites-title">出处（点击展开原文片段）</div>' +
       cs.map(function(c, i){
-        return '<div class="cite-item" data-i="' + (c.index || i + 1) + '">' +
+        // 流式事件里叫 index，库里的列叫 idx —— 两条来源都要能对上角标
+        var n = c.index || c.idx || (i + 1);
+        return '<div class="cite-item" data-i="' + n + '">' +
           '<div class="cite-head">' +
-            '<span class="cite-n">' + (c.index || i + 1) + "</span>" +
+            '<span class="cite-n">' + n + "</span>" +
             '<span class="cite-id">' + esc(c.chunk_id || "") + "</span></div>" +
           '<div class="cite-snip">' + esc(c.snippet || "") + "</div></div>";
       }).join("");

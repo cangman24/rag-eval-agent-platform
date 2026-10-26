@@ -91,6 +91,32 @@ start → intent → plan → tool_call → tool_result → verify → answer �
 - 顶部汇总：轮次 / 工具调用 / 事件数 / 错误节点数 / stop_reason / thread_id
 - 轨迹落盘 `data/checkpoints/<tid>.events.jsonl`，可从下拉框**回放历史 thread**
 
+### 对话持久化：SQLite + 刷新恢复
+
+```bash
+python -m rag1_knowledge_qa.server     # 起服务，库自动建在 data/app.db
+python tools/serve_ui.py               # 打开 http://127.0.0.1:8080
+```
+
+`core/store.py` 只用标准库 `sqlite3`（零依赖，CI 里跑的是真库而不是 mock）：
+
+| 表 | 作用 |
+|---|---|
+| `conversations` | 会话（标题取首个问题，按最近更新倒序） |
+| `messages` | 消息（`refused` / `latency_ms` / `request_id`，拒答也落库） |
+| `citations` | 出处（`message_id + idx` 主键，可按 `doc_id` 聚合） |
+
+几条刻意为之的设计：
+
+- **引用单独成表**而不是塞进 `messages.meta` 的 JSON：只有这样才能 `GROUP BY doc_id`
+  回答"这个回答引了哪几篇"，也才谈得上"引用可溯源"。
+- **流式端点首帧就下发 `session_id`**，并在 `finally` 里落库 —— 用户中途关页面，
+  已生成的答案仍在历史里。
+- **前端 `localStorage` 只存当前会话 id**，消息体留在库里：一条答案带 5 个 snippet
+  就有几十 KB，塞 `localStorage` 迟早撞 5MB 上限。
+- 接口：`GET/POST /sessions`、`GET/PATCH/DELETE /sessions/{id}`、`GET /sessions/stats`
+  （会话数 / 消息数 / 引用数 / 被引文档 TOP）。
+
 ### 耗时归因：span 树 + 甘特条
 
 事件流告诉你"发生了什么"，但回答不了"慢在哪"。所以每一次运行还会长出一棵 **span 树**
