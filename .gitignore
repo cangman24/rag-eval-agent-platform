@@ -86,3 +86,10 @@ demos/reports/
 
 # 临时提交信息文件（提交后即删，避免误入库）
 _commit*.txt
+
+# 运行时对话库（core/store.py 生成，不进版本库）
+data/app.db
+data/app.db-shm
+data/app.db-wal
+*.sqlite
+*.sqlite3

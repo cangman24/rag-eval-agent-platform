@@ -253,6 +253,40 @@
     font-family:var(--mono);font-size:11.5px;color:#b91c1c;line-height:1.6
   }
   .gt-err .lbl{color:var(--muted);font-family:inherit}
+
+  /* ---------------- 会话 / 历史抽屉 ---------------- */
+  .hdr-actions{display:flex;gap:8px;align-items:center}
+  .ghost{
+    background:transparent;border:1px solid var(--border);color:var(--muted);
+    padding:5px 11px;border-radius:8px;font-size:12.5px;cursor:pointer;
+    font-family:inherit;transition:all .15s;white-space:nowrap;
+  }
+  .ghost:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  .mask{position:fixed;inset:0;background:rgba(15,23,42,.36);z-index:40;display:none}
+  .mask.on{display:block}
+  .drawer{
+    position:fixed;top:0;left:0;bottom:0;width:330px;max-width:88vw;
+    background:var(--card);border-right:1px solid var(--border);z-index:41;
+    transform:translateX(-102%);transition:transform .22s ease;
+    display:flex;flex-direction:column;box-shadow:var(--shadow);
+  }
+  .drawer.on{transform:none}
+  .drawer-h{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border)}
+  .drawer-h h3{margin:0;font-size:14px;font-weight:600}
+  .drawer-h .ghost{margin-left:auto}
+  .drawer-list{overflow:auto;padding:8px;flex:1}
+  .sess{
+    display:block;width:100%;text-align:left;background:transparent;
+    border:1px solid transparent;border-radius:10px;padding:9px 10px;
+    cursor:pointer;font-family:inherit;color:var(--text);margin-bottom:2px;
+  }
+  .sess:hover{background:var(--accent-soft)}
+  .sess.on{border-color:var(--accent);background:var(--accent-soft)}
+  .sess-t{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sess-p{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+  .sess-d{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--mono);opacity:.8}
+  .drawer-f{padding:9px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .sess-empty{padding:26px 14px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.9}
 </style>
 </head>
 <body>
@@ -265,6 +299,10 @@
     <div class="tabs">
       <button class="tab on" id="tabChat">问答</button>
       <button class="tab" id="tabTrace">Agent 轨迹</button>
+    </div>
+    <div class="hdr-actions">
+      <button class="ghost" id="newChatBtn" title="新建一条会话（旧会话仍存在本地库里）">＋ 新对话</button>
+      <button class="ghost" id="histBtn" title="历史会话（SQLite 持久化）">历史</button>
     </div>
     <div class="status"><span class="dot" id="dot"></span><span id="statusText">检测中…</span></div>
   </header>
@@ -308,6 +346,16 @@
     </div>
   </footer>
 </div>
+
+<div class="mask" id="mask"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-h">
+    <h3>历史会话</h3>
+    <button class="ghost" id="closeDrawer">关闭</button>
+  </div>
+  <div class="drawer-list" id="sessList"></div>
+  <div class="drawer-f" id="sessFoot">SQLite · data/app.db</div>
+</aside>
 
 <script>
 (function(){
@@ -395,21 +443,99 @@
   }
 
   /* ---------------- 示例问题 ---------------- */
-  var chips = document.getElementById("chips");
-  SAMPLES.forEach(function(s){
-    var b = document.createElement("button");
-    b.className = "chip";
-    b.textContent = s;
-    b.onclick = function(){ ask(s); };
-    chips.appendChild(b);
-  });
+  function buildChips(el){
+    el.innerHTML = "";
+    SAMPLES.forEach(function(s){
+      var b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = s;
+      b.onclick = function(){ ask(s); };
+      el.appendChild(b);
+    });
+  }
+  buildChips(document.getElementById("chips"));
 
-  /* ---------------- 提问 ---------------- */
-  function ask(query){
-    query = (query || "").trim();
-    if (!query) return;
-    if (empty && empty.parentNode) empty.parentNode.removeChild(empty);
+  /* ================= 会话：SQLite 持久化 =================
+     为什么前端只存一个 id、不存消息体：
+       消息（含引用 snippet）可能有几十 KB，localStorage 有 5MB 上限，
+       多轮之后必然写爆；而消息本来就该在服务端。这里 localStorage 只做
+       "记住你上次在哪条会话"，真正的数据在 data/app.db。
+  */
+  var SID = null;
+  var sessList = document.getElementById("sessList");
+  var mask = document.getElementById("mask");
+  var drawer = document.getElementById("drawer");
 
+  function lsGet(){ try{ return localStorage.getItem("kb_session"); }catch(_){ return null; } }
+  function lsSet(v){
+    try{ if (v){ localStorage.setItem("kb_session", v); } else { localStorage.removeItem("kb_session"); } }catch(_){}
+  }
+  function clearEmpty(){
+    var e = document.getElementById("empty");
+    if (e && e.parentNode) e.parentNode.removeChild(e);
+  }
+  function resetChat(){
+    wrap.innerHTML =
+      '<div class="empty" id="empty">' +
+        '<h2>问点什么吧</h2>' +
+        '<p>答案只来自知识库，每条结论都带 [n] 出处，可点开看原文片段</p>' +
+        '<div class="chips" id="chips"></div>' +
+      '</div>';
+    buildChips(document.getElementById("chips"));
+    main.scrollTop = 0;
+  }
+
+  function newSession(silent){
+    return fetch(API + "/sessions", {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"
+    }).then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function(d){
+      SID = d.session_id;
+      lsSet(SID);
+      if (!silent) resetChat();
+      return SID;
+    });
+  }
+
+  /* ---------------- 计数口径（这里原来是个真 bug） ----------------
+     旧代码把同一批引用数了两遍：「citations.length 条引用」和
+     「d.citations.length 个出处」永远是同一个数，看起来像"记录不符"。
+     现在分开算：
+       出处 = 不同的 chunk 数（去重后，前端能点开的卡片数）
+       引用 = 答案正文里 [n] 角标出现的次数（可能一篇出处被引两次）
+  */
+  function countMarks(text){
+    var m = String(text || "").match(/\[(\d{1,2})\]/g);
+    return m ? m.length : 0;
+  }
+  function uniqChunks(citations){
+    var seen = {}, out = [];
+    (citations || []).forEach(function(c){
+      var key = c.chunk_id || ("#" + c.index);
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push(c);
+    });
+    return out;
+  }
+  function fmtMeta(citations, answerText, latencyMs){
+    var cs = uniqChunks(citations);
+    var html = "";
+    if (cs.length){
+      html += '<span class="pill">' + cs.length + " 个出处</span>";
+      var marks = countMarks(answerText) || cs.length;
+      html += '<span class="pill">' + marks + " 处引用</span>";
+    }
+    if (latencyMs != null && !isNaN(latencyMs)){
+      html += '<span class="pill">' + Math.round(latencyMs) + " ms</span>";
+    }
+    return html;
+  }
+
+  /* ---------------- 卡片骨架（流式与历史共用） ---------------- */
+  function makeCard(query){
     var qa = document.createElement("div");
     qa.className = "qa";
     qa.innerHTML =
@@ -420,12 +546,165 @@
         '<div class="cites" style="display:none"></div>' +
       '</div>';
     wrap.appendChild(qa);
-    scrollBottom();
+    return {
+      qa: qa,
+      meta: qa.querySelector(".meta"),
+      ansEl: qa.querySelector(".answer"),
+      citesEl: qa.querySelector(".cites"),
+      card: qa.querySelector(".a-card")
+    };
+  }
 
-    var meta = qa.querySelector(".meta");
-    var ansEl = qa.querySelector(".answer");
-    var citesEl = qa.querySelector(".cites");
-    var card = qa.querySelector(".a-card");
+  function paintCites(citesEl, citations){
+    var cs = uniqChunks(citations);
+    if (!cs.length){ citesEl.style.display = "none"; citesEl.innerHTML = ""; return; }
+    citesEl.style.display = "";
+    citesEl.innerHTML = '<div class="cites-title">出处（点击展开原文片段）</div>' +
+      cs.map(function(c, i){
+        return '<div class="cite-item" data-i="' + (c.index || i + 1) + '">' +
+          '<div class="cite-head">' +
+            '<span class="cite-n">' + (c.index || i + 1) + "</span>" +
+            '<span class="cite-id">' + esc(c.chunk_id || "") + "</span></div>" +
+          '<div class="cite-snip">' + esc(c.snippet || "") + "</div></div>";
+      }).join("");
+    bindCites(citesEl);
+  }
+
+  function bindMarks(refs){
+    refs.ansEl.querySelectorAll(".cite").forEach(function(el){
+      el.onclick = function(){
+        var target = refs.qa.querySelector('.cite-item[data-i="' + el.dataset.i + '"]');
+        if (!target) return;
+        target.classList.add("open", "active");
+        target.scrollIntoView({behavior:"smooth", block:"center"});
+        setTimeout(function(){ target.classList.remove("active"); }, 1600);
+      };
+    });
+  }
+
+  /* ---------------- 历史回放：把库里的消息渲染回来 ---------------- */
+  function paintSaved(refs, msg){
+    var text = msg.content || "";
+    if (msg.refused){
+      refs.qa.classList.add("refused");
+      refs.ansEl.innerHTML = render(text || "知识库中未找到相关内容。");
+      refs.meta.innerHTML = '<span class="pill badge-refuse">已拒答</span>' +
+        '<span class="muted">知识库中没有可支撑该问题的内容</span>';
+      return;
+    }
+    refs.ansEl.innerHTML = render(text);
+    refs.meta.innerHTML = fmtMeta(msg.citations, text, msg.latency_ms);
+    paintCites(refs.citesEl, msg.citations);
+    bindMarks(refs);
+  }
+
+  function renderHistory(msgs){
+    if (!msgs || !msgs.length) return;
+    clearEmpty();
+    var q = "";
+    msgs.forEach(function(m){
+      if (m.role === "user"){ q = m.content || ""; return; }
+      var refs = makeCard(q);
+      paintSaved(refs, m);
+      q = "";
+    });
+    scrollBottom();
+  }
+
+  /* ---------------- 历史抽屉 ---------------- */
+  function openDrawer(){
+    mask.classList.add("on");
+    drawer.classList.add("on");
+    loadSessions();
+  }
+  function closeDrawer(){
+    mask.classList.remove("on");
+    drawer.classList.remove("on");
+  }
+  mask.onclick = closeDrawer;
+  document.getElementById("closeDrawer").onclick = closeDrawer;
+
+  function loadSessions(){
+    sessList.innerHTML = '<div class="sess-empty">读取中…</div>';
+    fetch(API + "/sessions?limit=60", {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var items = d.sessions || [];
+        if (!items.length){
+          sessList.innerHTML = '<div class="sess-empty">还没有历史会话<br>' +
+            '问一句就会自动建一条</div>';
+          return;
+        }
+        sessList.innerHTML = "";
+        items.forEach(function(s){
+          var b = document.createElement("button");
+          b.className = "sess" + (s.id === SID ? " on" : "");
+          var title = s.title || "（未命名会话）";
+          var when = new Date((s.updated_at || 0) * 1000);
+          b.innerHTML = '<div class="sess-t">' + esc(title) + "</div>" +
+            '<div class="sess-p">' + esc(s.preview || "（空会话）") + "</div>" +
+            '<div class="sess-d">' + s.message_count + " 条消息 · " +
+              when.toLocaleString("zh-CN", {month:"2-digit", day:"2-digit",
+                hour:"2-digit", minute:"2-digit"}) + "</div>";
+          b.onclick = function(){ openSession(s.id); };
+          sessList.appendChild(b);
+        });
+      })
+      .catch(function(e){
+        sessList.innerHTML = '<div class="sess-empty">读取失败：' + esc(e.message) + "</div>";
+      });
+  }
+
+  function openSession(id){
+    return fetch(API + "/sessions/" + encodeURIComponent(id), {cache:"no-store"})
+      .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(d){
+        SID = d.id;
+        lsSet(SID);
+        resetChat();
+        renderHistory(d.messages || []);
+        closeDrawer();
+      });
+  }
+
+  document.getElementById("newChatBtn").onclick = function(){
+    newSession(false).catch(function(e){ setStatus("bad", "新建会话失败"); });
+  };
+  document.getElementById("histBtn").onclick = openDrawer;
+
+  /* 启动：优先恢复上次那条会话（这就是"刷新不丢"） */
+  function boot(){
+    var sid = lsGet();
+    // 没有历史 id 就什么都不做 —— 等用户第一次提问，由后端 ensure 出一条会话。
+    // 否则每刷新一次页面都会留下一条空会话，历史列表很快就脏了。
+    if (!sid) return Promise.resolve();
+    return fetch(API + "/sessions/" + encodeURIComponent(sid), {cache:"no-store"})
+      .then(function(r){
+        if (r.status === 404) throw new Error("gone");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(d){
+        SID = d.id || sid;
+        lsSet(SID);
+        renderHistory(d.messages || []);
+      })
+      .catch(function(){
+        SID = null;
+        lsSet(null);
+      });
+  }
+
+  /* ---------------- 提问 ---------------- */
+  function ask(query){
+    query = (query || "").trim();
+    if (!query) return;
+    clearEmpty();
+
+    var refs = makeCard(query);
+    var qa = refs.qa, meta = refs.meta, ansEl = refs.ansEl,
+        citesEl = refs.citesEl, card = refs.card;
+    scrollBottom();
 
     var t0 = performance.now();
     var citations = [];
@@ -466,7 +745,7 @@
     fetch(API + "/chat/stream", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({query: query}),
+      body: JSON.stringify({query: query, session_id: SID}),
       signal: ctrl.signal
     }).then(function(res){
       if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
@@ -508,7 +787,10 @@
       var d;
       try { d = JSON.parse(dataLines.join("\n")); } catch(_) { return; }
 
-      if (ev === "start"){
+      if (ev === "session"){
+        // 服务端下发的会话 id —— 第一次提问时才知道，务必存下来
+        if (d.session_id){ SID = d.session_id; lsSet(SID); }
+      } else if (ev === "start"){
         meta.innerHTML = '<span class="dots">检索中</span>';
       } else if (ev === "retrieval"){
         gotRetrieval = true;
@@ -521,21 +803,9 @@
       } else if (ev === "answer"){
         answerText = d.text || "";
         ansEl.innerHTML = render(answerText);
-        var ms = Math.round(performance.now() - t0);
-        meta.innerHTML = '<span class="pill">' + (gotRetrieval ? citations.length + " 条引用 · " : "") +
-          ms + " ms</span>" + (d.citations ? '<span class="pill">' + d.citations.length + " 个出处</span>" : "");
-        renderCites();
-        bindCites(citesEl);
-        // 角标只在本条问答内定位（多轮对话时不会跳到更早的卡片）
-        ansEl.querySelectorAll(".cite").forEach(function(el){
-          el.onclick = function(){
-            var target = qa.querySelector('.cite-item[data-i="' + el.dataset.i + '"]');
-            if (!target) return;
-            target.classList.add("open", "active");
-            target.scrollIntoView({behavior:"smooth", block:"center"});
-            setTimeout(function(){ target.classList.remove("active"); }, 1600);
-          };
-        });
+        meta.innerHTML = fmtMeta(citations, answerText, null);
+        paintCites(citesEl, citations);
+        bindMarks(refs);
         scrollBottom();
       } else if (ev === "refusal"){
         refused = true;
@@ -552,20 +822,9 @@
           p.textContent = "服务端 " + d.latency_ms + " ms";
           meta.appendChild(p);
         }
+        // 会话标题/预览刚变了，若抽屉开着就顺手刷新
+        if (drawer.classList.contains("on")) loadSessions();
       }
-    }
-
-    function renderCites(){
-      if (!citations.length) return;
-      citesEl.style.display = "";
-      citesEl.innerHTML = '<div class="cites-title">出处（点击展开原文片段）</div>' +
-        citations.map(function(c){
-          return '<div class="cite-item" data-i="' + c.index + '">' +
-            '<div class="cite-head">' +
-              '<span class="cite-n">' + c.index + "</span>" +
-              '<span class="cite-id">' + esc(c.chunk_id) + "</span></div>" +
-            '<div class="cite-snip">' + esc(c.snippet || "") + "</div></div>";
-        }).join("");
     }
 
     function finish(){
@@ -888,6 +1147,7 @@
 
   health();
   loadThreads();
+  boot();          // 恢复上次会话（刷新不丢对话）
   ta.focus();
 })();
 </script>

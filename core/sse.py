@@ -147,6 +147,76 @@ def parse_sse(text: str) -> List[Dict[str, Any]]:
     return events
 
 
+class TurnFolder:
+    """**增量**折叠器：每来一帧就更新，供流式端点边转发边累积。
+
+    ★ 与 fold_turn 的关系：fold_turn 是"一次性喂完"的便捷封装，
+      TurnFolder 是它的增量内核。分成两个是因为流式端点不能等流结束才知道答案
+      —— 帧要立刻转发给浏览器，同时又得攒出一份落库。
+    """
+
+    def __init__(self) -> None:
+        self.answer = ""
+        self.citations: List[Dict[str, Any]] = []
+        self.refused = False
+        self.latency_ms: Optional[float] = None
+        self.error: Optional[str] = None
+        self._got_answer = False
+
+    def feed(self, frame: str) -> "TurnFolder":
+        for ev in parse_sse(frame):
+            if "comment" in ev:
+                continue
+            try:
+                data = json.loads(ev.get("data") or "{}")
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(data, dict):
+                continue
+            kind = ev.get("event")
+            if kind == "citation":
+                self.citations.append(data)
+            elif kind == "answer":
+                self.answer = data.get("text") or ""
+                self._got_answer = True
+            elif kind == "refusal":
+                # 拒答：契约上不带引用，这里显式清空，避免"未找到 + 3 条来源"
+                self.refused = True
+                self.answer = data.get("text") or ""
+                self.citations = []
+                self._got_answer = True
+            elif kind == "error":
+                self.error = data.get("error")
+            elif kind == "done":
+                self.latency_ms = data.get("latency_ms")
+        return self
+
+    def result(self) -> Dict[str, Any]:
+        return {
+            "answer": self.answer if self._got_answer else "",
+            "citations": self.citations,
+            "refused": self.refused,
+            "latency_ms": self.latency_ms,
+            "error": self.error,
+        }
+
+
+def fold_turn(frames: Iterable[str]) -> Dict[str, Any]:
+    """把一次问答的 SSE 帧折叠成一条可落库的助手消息。
+
+    ★ 为什么需要它：流式端点只吐出字符串帧，而"刷新页面要能看到答案"必须
+      在服务端留一份。折叠是幂等的、纯函数式的，**不改 RagService 的事件顺序**
+      —— 那条顺序被 test_stream_refusal_path 锁着（先判拒答再发引用），
+      为了落库去动它风险远大于收益。
+
+    返回键：answer / citations / refused / latency_ms / error。
+    """
+    folder = TurnFolder()
+    for frame in frames:
+        folder.feed(frame)
+    return folder.result()
+
+
 class SSEStream:
     """带序号与统计的 SSE 发射器。
 
