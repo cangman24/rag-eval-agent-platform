@@ -49,7 +49,7 @@ test-fast:  ## 快速跑一遍（静默模式，只看结果）
 
 demo:  ## 跑全部 demo（每个都应 exit 0）
 	@for d in demo_core demo_pipeline demo_eval demo_agent demo_ingest \
-	          demo_service demo_agent2 demo_evalrun demo_agenteval demo_mcp; do \
+	          demo_service demo_agent2 demo_evalrun demo_agenteval demo_mcp demo_doc_vision; do \
 	  printf "  %-18s " $$d; \
 	  if $(PY) demos/$$d.py > /dev/null 2>&1; then echo "OK"; else echo "FAIL"; fi; \
 	done
