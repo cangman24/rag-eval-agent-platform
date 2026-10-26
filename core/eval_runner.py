@@ -71,6 +71,10 @@ class EvalRunConfig:
     k_list: Sequence[int] = (5,)
     ingest_meta: Dict[str, Any] = field(default_factory=dict)
     embedding_model: str = "unknown"
+    # ★ 证据链字段（D3）：必须由调用方**运行时实测**后传入，
+    #   写死常量就退化成"文档声称"，失去证据价值。
+    model_info: Dict[str, Any] = field(default_factory=dict)
+    corpus_fingerprint: Dict[str, Any] = field(default_factory=dict)
     judge_enabled: bool = False
     judge_model: str = ""
     judge_prompt_version: str = ""
@@ -210,6 +214,11 @@ def run_eval(
                        if config.embedding_model and config.embedding_model != "unknown"
                        else (config.ingest_meta or {}).get("embedding_model")
                        or config.embedding_model or "unknown")
+    # 兜底：实测到的模型名优先于 unknown —— 索引是旧版本建的时候（ingest_meta 里
+    # 可能没有/是 unknown），但本次 run 确实用了这个 embedder，就该记这次的。
+    if effective_model in (None, "", "unknown") and (config.model_info or {}).get(
+            "embedding_model"):
+        effective_model = config.model_info["embedding_model"]
     ingest_block = dict(config.ingest_meta or {})
     ingest_block["embedding_model"] = effective_model
 
@@ -219,6 +228,8 @@ def run_eval(
         "notes": config.notes,
         "eval_set": eval_meta,
         "ingest": ingest_block,
+        "model_info": dict(config.model_info or {}),
+        "corpus_fingerprint": dict(config.corpus_fingerprint or {}),
         "retrieval": {
             "top_k": config.top_k,
             "recall_k": config.recall_k,
@@ -289,6 +300,31 @@ def _write_summary(path: str, manifest: Dict[str, Any],
         cfg_bits.append(f"指纹=`{ing['config_fingerprint']}`")
     if cfg_bits:
         lines.append(f"- 建库配置：{', '.join(cfg_bits)}")
+    # ★ 证据链区块：模型与语料必须"报告自带出处"，
+    #   面试时打开 SUMMARY 就能回答"这是哪份语料、哪个模型跑出来的"。
+    mi = m.get("model_info") or {}
+    if mi:
+        bits = []
+        for key, label in (("embedding_model", "向量"), ("embedding_dim", "维度"),
+                           ("reranker_model", "精排"), ("llm_model", "生成")):
+            if mi.get(key) not in (None, "", "unknown"):
+                bits.append(f"{label}=`{mi[key]}`")
+        if bits:
+            lines.append(f"- 模型实测：{'  '.join(bits)}")
+        if mi.get("probed_at"):
+            lines.append(f"- 实测时间：{mi['probed_at']}")
+    cf = m.get("corpus_fingerprint") or {}
+    if cf:
+        line = "- 语料指纹："
+        if cf.get("doc_count") is not None:
+            line += f"{cf['doc_count']} 篇"
+        if cf.get("indexed_doc_count") is not None:
+            line += f"（入索引 {cf['indexed_doc_count']} 篇）"
+        if cf.get("content_sha256"):
+            line += f"  sha256=`{cf['content_sha256']}`"
+        if cf.get("dir"):
+            line += f"  `{cf['dir']}`"
+        lines.append(line)
     lines.append(f"- 检索口径：top_k={m['retrieval']['top_k']}, "
                  f"recall_k={m['retrieval']['recall_k']}")
     lines.append("")

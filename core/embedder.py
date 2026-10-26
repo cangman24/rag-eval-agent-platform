@@ -15,6 +15,10 @@ class BgeEmbedder:
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
+        # ★ 记下权重路径：评测报告要靠它自证"用的是哪个模型"。
+        #   以前只在 manifest 里写一个环境变量默认值，结果出现过
+        #   embedding_model='unknown' —— 数字失去出处，等于没有数字。
+        self.model_dir = model_dir
         self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
         self.model = AutoModel.from_pretrained(model_dir).to(self.device)
         self.model.eval()

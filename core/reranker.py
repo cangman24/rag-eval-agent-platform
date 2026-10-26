@@ -8,6 +8,8 @@ class BgeReranker:
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
+        # ★ 同 embedder：保留权重路径，让"精排是否真加载"可被报告自证
+        self.model_dir = model_dir
         self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(self.device)
         self.model.eval()

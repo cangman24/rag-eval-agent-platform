@@ -23,15 +23,101 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
+import time
 from typing import Any, Callable, List, Optional
 
 from core.eval_runner import (
     EvalRunConfig, compare_runs, latest_run_dir, load_items_or_raise, run_eval,
 )
 from core.pipeline import ablation_configs
+
+
+# --------------------------------------------------------------------- 证据链实测
+def _probe_embedding_dim(service: Any) -> Optional[int]:
+    """实测向量维度：从已建索引里取一条真向量，而不是读配置里的常量。
+
+    ★ 为什么必须实测：1024 维是"BGE-M3 应该是 1024"的**文档知识**，
+      从索引里量出来的是**这台机器这次运行**的事实。
+      报告里的维度要能挡住"换了模型却还在用旧数字"的错误。
+    """
+    retriever = getattr(service, "retriever", None)
+    store = getattr(retriever, "vector_store", None)
+    if store is not None:
+        # 先从索引里捞：零成本、且不触发任何模型推理
+        for getter in ("get", ):
+            fn = getattr(store, getter, None)
+            if fn is None:
+                continue
+            for doc_id in (getattr(getattr(retriever, "bm25", None), "doc_ids", None)
+                           or [])[:5]:
+                try:
+                    rec = fn(doc_id)
+                except Exception:  # noqa: BLE001 - 探测失败不影响评测
+                    rec = None
+                if rec and rec.get("embedding"):
+                    return len(rec["embedding"])
+    # 回退：真机编码一个探针（GPU 上几十毫秒）
+    embed_fn = getattr(retriever, "embed_fn", None)
+    if embed_fn is not None:
+        try:
+            return len(embed_fn("维度探针"))
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
+def _probe_model_info(service: Any) -> dict:
+    """把"这次 run 用的是什么模型"变成可验证的事实。"""
+    emb = getattr(service, "embedder", None)
+    rr = getattr(service, "reranker", None)
+    info: dict = {
+        "embedding_model": getattr(emb, "model_dir", None) or os.environ.get(
+            "BGE_M3_PATH") or "unknown",
+        "embedding_dim": _probe_embedding_dim(service),
+        "reranker_model": getattr(rr, "model_dir", None) or os.environ.get(
+            "BGE_RERANKER_PATH") or "unknown",
+        "reranker_loaded": rr is not None,
+        "probed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    llm = getattr(service, "llm", None)
+    if llm is not None:
+        info["llm_model"] = getattr(llm, "model", None) or "unknown"
+    dev = getattr(emb, "device", None)
+    if dev:
+        info["device"] = dev
+    return info
+
+
+def _probe_corpus_fingerprint(docs_dir: str, chunks_file: str) -> dict:
+    """语料指纹：篇数 + 全量内容 sha256（按文件名排序后逐字节喂入）。
+
+    ★ 用字节而不是"去空白后的文本"：指纹的职责是**发现变化**，
+      越严格越好；宽松归一化会让"改了个标点"这种变更逃过检测。
+    """
+    out: dict = {"dir": docs_dir}
+    if os.path.isdir(docs_dir):
+        files = sorted(f for f in os.listdir(docs_dir) if f.endswith(".md"))
+        h = hashlib.sha256()
+        for name in files:
+            with open(os.path.join(docs_dir, name), "rb") as fh:
+                h.update(name.encode("utf-8"))
+                h.update(fh.read())
+        out["doc_count"] = len(files)
+        out["content_sha256"] = h.hexdigest()[:16]
+    # 入索引篇数单独记：raw 目录里有文件 ≠ 它进了索引（本次就差 1 篇）
+    if chunks_file and os.path.exists(chunks_file):
+        try:
+            with open(chunks_file, encoding="utf-8") as f:
+                chunks = json.load(f).get("chunks", [])
+            out["indexed_doc_count"] = len({c.get("doc_id") for c in chunks})
+            out["chunk_count"] = len(chunks)
+        except Exception:  # noqa: BLE001
+            pass
+    return out
 
 
 # --------------------------------------------------------------------- 装载
@@ -134,6 +220,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         ingest_meta=ingest_meta,
         judge_enabled=bool(judge_fn),
         judge_model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+        model_info=_probe_model_info(service),
+        corpus_fingerprint=_probe_corpus_fingerprint(
+            args.docs, os.environ.get("RAG_CHUNKS_FILE", "data/vectors/chunks.json")),
         notes=args.notes or "",
     )
     result = run_eval(items, configs, factory, cfg,
@@ -198,6 +287,15 @@ def cmd_show(args: argparse.Namespace) -> int:
             parts.append(f"fingerprint={ing['config_fingerprint']}")
         print(f"ingest      : {'  '.join(parts)}")
     print(f"eval_set    : {m['eval_set']['n']} 条 {m['eval_set']['by_type']}")
+    mi = m.get("model_info") or {}
+    if mi:
+        print(f"model       : {mi.get('embedding_model')} "
+              f"(dim={mi.get('embedding_dim')})  rerank="
+              f"{mi.get('reranker_model')}")
+    cf = m.get("corpus_fingerprint") or {}
+    if cf:
+        print(f"corpus      : {cf.get('doc_count')} 篇  "
+              f"sha256={cf.get('content_sha256')}")
     if m["eval_set"].get("sha256"):
         print(f"eval sha256 : {m['eval_set']['sha256']}")
     print()
@@ -243,6 +341,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="领域知识问答系统 · 评测入口（可复现、带运行指纹）")
     p.add_argument("--eval-set", default="data/eval/eval.jsonl",
                    help="评测集 JSONL 路径")
+    p.add_argument("--docs", default=os.environ.get("RAG_DOCS_DIR", "data/raw"),
+                   help="语料目录（用于算语料指纹，写进 manifest）")
     p.add_argument("--out", default="reports", help="报告输出根目录")
     p.add_argument("--ablation", action="store_true",
                    help="跑四档消融（否则只跑默认档）")

@@ -24,13 +24,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .bm25 import BM25Index
 from .loaders import LoadedDoc, load_dir, summarize_load
-from .retrieval import recursive_chunk
+from .retrieval import count_tokens_approx, recursive_chunk
 from .vectorstore import InMemoryVectorStore
 
 
@@ -149,8 +150,18 @@ def build_parents(
       父块内部的标题，看不到祖先章节。如果不把父块的层级前缀补回去，
       子块的 heading_path 就丢了顶层章节信息（这个 bug 是被
       test_headings_accumulate_within_parent 抓出来的）。
+
+    ★ 兜底（实测踩到）：通篇是编号列表的文档（如 `1. 原始影像采集` 连写 6 行），
+      `recursive_chunk` 会把每一行都判成标题（`_NUM_RE` 的"编号 + 短标题"规则），
+      于是标题全被剥掉、正文缓冲始终为空 → **整篇产出 0 块，文档静默消失**。
+      表现是 `documents=83` 而索引里只有 82 个 doc_id，且 stats 里没有任何报警。
+      文档读进来了却不进索引，是最容易被忽略的一类数据丢失 —— 这里兜底成
+      整篇一个父块，保证"进了 loader 就一定进索引"。
     """
     parents = recursive_chunk(text, chunk_size=parent_size, overlap=0)
+    if not parents and text.strip():
+        parents = [{"text": text.strip(), "heading_path": "",
+                    "token_len": count_tokens_approx(text)}]
     return [(f"{doc_id}#p{i}", p["text"], p.get("heading_path", ""))
             for i, p in enumerate(parents)]
 
@@ -173,15 +184,23 @@ def chunk_documents(
     chunks: List[Chunk] = []
     parents: Dict[str, str] = {}
     dropped_short = 0
+    # ★ 统计"整篇没产出任何块"的文档：以前这种丢失是完全静默的，
+    #   现在必须出现在 stats 里 —— 建库报告要能回答"83 篇是否都进索引了"。
+    docs_without_chunks = 0
 
     for doc in docs:
         parent_list = build_parents(doc.doc_id, doc.text, config.parent_size)
         if not parent_list:
+            docs_without_chunks += 1
             continue
         for pi, (pid, ptext, phpath) in enumerate(parent_list):
             parents[pid] = ptext
             subs = recursive_chunk(ptext, chunk_size=config.chunk_size,
                                    overlap=config.overlap)
+            # 兜底：父块内部也被切成 0 块时，用父块全文做一个子块
+            if not subs and ptext.strip():
+                subs = [{"text": ptext.strip(), "heading_path": phpath,
+                         "token_len": count_tokens_approx(ptext)}]
             for ci, sub in enumerate(subs):
                 if sub["token_len"] < config.min_chunk_tokens:
                     dropped_short += 1
@@ -204,7 +223,8 @@ def chunk_documents(
                           "parent_index": pi},
                 ))
 
-    return chunks, parents, {"dropped_short_chunks": dropped_short}
+    return chunks, parents, {"dropped_short_chunks": dropped_short,
+                             "docs_without_chunks": docs_without_chunks}
 
 
 # --------------------------------------------------------------------- 建库
@@ -298,6 +318,13 @@ def ingest_dir(
 
     if verbose:
         print(summarize_load(load_result))
+
+    # ★ 静默丢文档必须喊出来：documents=83 而索引只有 82 篇时，
+    #   如果不报警，"语料 83 篇"就是一句没有证据的话。
+    docs_without_chunks = int(cstats.get("docs_without_chunks", 0) or 0)
+    if docs_without_chunks:
+        print(f"[warn] {docs_without_chunks} 篇文档切分后没有产出任何块"
+              f"（已跳过；多半是通篇被判成标题结构）", file=sys.stderr)
         print(f"切分 -> {stats['chunks']} 个子块 / {stats['parents']} 个父块；"
               f"平均 {stats['avg_chunk_tokens']} tokens")
 

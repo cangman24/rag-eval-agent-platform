@@ -1,0 +1,292 @@
+{
+  "run_id": "run-20261026-180455-5a11f5",
+  "timestamp": "2026-10-26 18:11:51",
+  "notes": "chunk=512 overlap=64 parent=2048；83篇/303块全量重跑（data_process.md 已入库）",
+  "eval_set": {
+    "n": 119,
+    "answerable": 99,
+    "unanswerable": 20,
+    "by_type": {
+      "term": 33,
+      "fact": 33,
+      "plan_index": 24,
+      "multi_hop": 9,
+      "out_of_scope": 20
+    },
+    "path": "data/eval/eval.jsonl",
+    "sha256": "3ed0730c00dcc92c",
+    "path_rel": "data\\eval\\eval.jsonl"
+  },
+  "ingest": {
+    "embedding_model": "models/bge-m3"
+  },
+  "model_info": {
+    "embedding_model": "models/bge-m3",
+    "embedding_dim": 1024,
+    "reranker_model": "models/bge-reranker-v2-m3",
+    "reranker_loaded": true,
+    "probed_at": "2026-10-26 18:04:55",
+    "llm_model": "deepseek-chat",
+    "device": "cuda"
+  },
+  "corpus_fingerprint": {
+    "dir": "data/raw",
+    "doc_count": 83,
+    "content_sha256": "046edf5a956bfb70",
+    "indexed_doc_count": 83,
+    "chunk_count": 303
+  },
+  "retrieval": {
+    "top_k": 5,
+    "recall_k": 20,
+    "k_list": [
+      5,
+      3,
+      10
+    ],
+    "configs": [
+      {
+        "name": "A_vector_only",
+        "use_vector": true,
+        "use_bm25": false,
+        "use_rerank": false,
+        "use_rules": false
+      },
+      {
+        "name": "B_hybrid_rrf",
+        "use_vector": true,
+        "use_bm25": true,
+        "use_rerank": false,
+        "use_rules": false
+      },
+      {
+        "name": "C_hybrid_rerank",
+        "use_vector": true,
+        "use_bm25": true,
+        "use_rerank": true,
+        "use_rules": false
+      },
+      {
+        "name": "D_hybrid_rerank_rules",
+        "use_vector": true,
+        "use_bm25": true,
+        "use_rerank": true,
+        "use_rules": true
+      }
+    ]
+  },
+  "results": [
+    {
+      "config": "A_vector_only (向量)",
+      "n": 99,
+      "overall": {
+        "hit@5": 0.6061,
+        "mrr@5": 0.4524,
+        "recall@5": 0.5707,
+        "precision@5": 0.1232,
+        "ndcg@5": 0.466
+      },
+      "latency": {
+        "mean_ms": 45.0,
+        "p50_ms": 39.7,
+        "p95_ms": 51.1,
+        "max_ms": 419.3
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.3333,
+          "mrr@5": 0.2071,
+          "recall@5": 0.3333,
+          "precision@5": 0.0667,
+          "ndcg@5": 0.2389
+        },
+        "multi_hop": {
+          "hit@5": 0.8889,
+          "mrr@5": 0.75,
+          "recall@5": 0.5,
+          "precision@5": 0.2,
+          "ndcg@5": 0.5104
+        },
+        "plan_index": {
+          "hit@5": 0.7083,
+          "mrr@5": 0.5153,
+          "recall@5": 0.7083,
+          "precision@5": 0.1417,
+          "ndcg@5": 0.5629
+        },
+        "term": {
+          "hit@5": 0.7273,
+          "mrr@5": 0.5707,
+          "recall@5": 0.7273,
+          "precision@5": 0.1455,
+          "ndcg@5": 0.6105
+        }
+      }
+    },
+    {
+      "config": "B_hybrid_rrf (向量+BM25)",
+      "n": 99,
+      "overall": {
+        "hit@5": 0.6667,
+        "mrr@5": 0.4843,
+        "recall@5": 0.6313,
+        "precision@5": 0.1333,
+        "ndcg@5": 0.5049
+      },
+      "latency": {
+        "mean_ms": 53.7,
+        "p50_ms": 50.9,
+        "p95_ms": 70.1,
+        "max_ms": 88.1
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.3939,
+          "mrr@5": 0.2449,
+          "recall@5": 0.3939,
+          "precision@5": 0.0788,
+          "ndcg@5": 0.2832
+        },
+        "multi_hop": {
+          "hit@5": 0.7778,
+          "mrr@5": 0.7037,
+          "recall@5": 0.3889,
+          "precision@5": 0.1556,
+          "ndcg@5": 0.4428
+        },
+        "plan_index": {
+          "hit@5": 0.9167,
+          "mrr@5": 0.6875,
+          "recall@5": 0.9167,
+          "precision@5": 0.1833,
+          "ndcg@5": 0.7452
+        },
+        "term": {
+          "hit@5": 0.7273,
+          "mrr@5": 0.5162,
+          "recall@5": 0.7273,
+          "precision@5": 0.1455,
+          "ndcg@5": 0.5688
+        }
+      }
+    },
+    {
+      "config": "C_hybrid_rerank (向量+BM25+Rerank)",
+      "n": 99,
+      "overall": {
+        "hit@5": 0.697,
+        "mrr@5": 0.5827,
+        "recall@5": 0.6616,
+        "precision@5": 0.1394,
+        "ndcg@5": 0.5874
+      },
+      "latency": {
+        "mean_ms": 183.9,
+        "p50_ms": 181.8,
+        "p95_ms": 211.7,
+        "max_ms": 360.6
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.3939,
+          "mrr@5": 0.3636,
+          "recall@5": 0.3939,
+          "precision@5": 0.0788,
+          "ndcg@5": 0.3716
+        },
+        "multi_hop": {
+          "hit@5": 0.7778,
+          "mrr@5": 0.6389,
+          "recall@5": 0.3889,
+          "precision@5": 0.1556,
+          "ndcg@5": 0.413
+        },
+        "plan_index": {
+          "hit@5": 1.0,
+          "mrr@5": 0.8049,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "ndcg@5": 0.8528
+        },
+        "term": {
+          "hit@5": 0.7576,
+          "mrr@5": 0.6247,
+          "recall@5": 0.7576,
+          "precision@5": 0.1515,
+          "ndcg@5": 0.6579
+        }
+      }
+    },
+    {
+      "config": "D_hybrid_rerank_rules (向量+BM25+Rerank+规则)",
+      "n": 99,
+      "overall": {
+        "hit@5": 0.697,
+        "mrr@5": 0.5827,
+        "recall@5": 0.6616,
+        "precision@5": 0.1394,
+        "ndcg@5": 0.5874
+      },
+      "latency": {
+        "mean_ms": 172.2,
+        "p50_ms": 170.2,
+        "p95_ms": 189.5,
+        "max_ms": 199.4
+      },
+      "by_type": {
+        "fact": {
+          "hit@5": 0.3939,
+          "mrr@5": 0.3636,
+          "recall@5": 0.3939,
+          "precision@5": 0.0788,
+          "ndcg@5": 0.3716
+        },
+        "multi_hop": {
+          "hit@5": 0.7778,
+          "mrr@5": 0.6389,
+          "recall@5": 0.3889,
+          "precision@5": 0.1556,
+          "ndcg@5": 0.413
+        },
+        "plan_index": {
+          "hit@5": 1.0,
+          "mrr@5": 0.8049,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "ndcg@5": 0.8528
+        },
+        "term": {
+          "hit@5": 0.7576,
+          "mrr@5": 0.6247,
+          "recall@5": 0.7576,
+          "precision@5": 0.1515,
+          "ndcg@5": 0.6579
+        }
+      }
+    }
+  ],
+  "answer_metrics": {
+    "refusal_accuracy": 0.8908,
+    "judged": 99.0,
+    "relevance_mean": 4.101,
+    "accuracy_mean": 3.5859,
+    "completeness_mean": 3.5354,
+    "groundedness_mean": 4.6667,
+    "hallucination_rate": 0.0101
+  },
+  "judge": {
+    "judge_prompt_version": "v1",
+    "dimensions": [
+      "relevance",
+      "accuracy",
+      "completeness",
+      "groundedness"
+    ],
+    "calls": 99,
+    "errors": 0,
+    "parse_failures": 0
+  },
+  "eval_set_health": {
+    "problems": []
+  }
+}

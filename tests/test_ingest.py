@@ -166,6 +166,36 @@ class TestChunkDocuments(unittest.TestCase):
         c = Chunk("id", "t", "d", "p")
         self.assertEqual(c.to_dict()["chunk_id"], "id")
 
+    # ---------------------------------------------------------- 静默丢文档
+    # ★ 真实踩坑：通篇编号列表的文档，每一行都被 heading_level 判成标题，
+    #   正文缓冲始终为空 -> 整篇 0 块 -> 文档读进来了却没进索引。
+    #   表现是 documents=83 而索引里只有 82 个 doc_id，且 stats 毫无报警。
+    NUMBERED_LIST_DOC = ("# 数据预处理流程\n"
+                         "1. 原始影像采集\n"
+                         "2. 辐射定标\n"
+                         "3. 影像拼接，生成瓦片\n"
+                         "4. 计算植被指数 NDVI\n")
+
+    def test_all_heading_doc_still_gets_a_parent(self):
+        parents = build_parents("dp.md", self.NUMBERED_LIST_DOC, parent_size=2048)
+        self.assertTrue(parents, "整篇被判成标题时也必须产出一个父块")
+        self.assertIn("辐射定标", parents[0][1])
+
+    def test_all_heading_doc_still_gets_chunks(self):
+        docs = [LoadedDoc("dp.md", self.NUMBERED_LIST_DOC, "/x/dp.md",
+                          {"format": "markdown", "filename": "dp.md"})]
+        chunks, _, stats = chunk_documents(docs, IngestConfig(
+            chunk_size=512, overlap=64, parent_size=2048, min_chunk_tokens=8))
+        self.assertTrue(chunks, "文档不能凭空消失")
+        self.assertIn("NDVI", "".join(c.text for c in chunks))
+        self.assertEqual(stats["docs_without_chunks"], 0)
+
+    def test_empty_doc_counted_as_without_chunks(self):
+        docs = [LoadedDoc("blank.md", "   \n\n", "/x/blank.md",
+                          {"format": "markdown", "filename": "blank.md"})]
+        _, _, stats = chunk_documents(docs, IngestConfig())
+        self.assertEqual(stats["docs_without_chunks"], 1)
+
 
 # ================================================================== ingest_dir
 class TestIngestDir(unittest.TestCase):

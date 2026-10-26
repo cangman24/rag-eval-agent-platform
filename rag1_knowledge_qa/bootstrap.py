@@ -191,7 +191,7 @@ def build_production_service() -> RagService:
     else:
         print("[warn] 未设置 DEEPSEEK_API_KEY -> 走无 LLM 降级模式（只回检索片段）")
 
-    return RagService(
+    svc = RagService(
         # ★ 这里必须传 llm，不能写死 None。
         #   踩坑记录：初版这里写成了 `llm=None` —— 上面第 168 行明明把
         #   LLMClient 构造好了，却因为这一行硬编码而被丢弃，于是：
@@ -211,3 +211,10 @@ def build_production_service() -> RagService:
             recall_k=env_int("RAG_RECALL_K"),
         ),
     )
+    # ★ 把装配件挂在 service 上：评测要"实测"模型名与向量维度，
+    #   不能靠读环境变量再抄一遍（那是文档声称，不是证据）。
+    #   挂属性而不是改 RagService 构造签名，避免动到 core 层的公共接口。
+    svc.embedder = embedder
+    svc.reranker = reranker
+    svc.index_meta = stats
+    return svc

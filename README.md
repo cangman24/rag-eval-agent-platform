@@ -5,17 +5,17 @@
 > - **项目一 `rag1_knowledge_qa`**：垂直领域 RAG 知识问答——混合检索、父子块双层索引、低置信拒答、引用溯源、逐层消融评测。
 > - **项目二 `rag2_kb_agent`**：企业知识库 Agent 平台——受控状态机、Checkpoint 续跑、工具白名单、三道熔断、三层记忆与上下文压缩。
 >
-> 全部业务逻辑**零第三方依赖可单测**（767 项，约 1 秒）；评测报告带运行指纹与评测集哈希，**可复现**。
+> 全部业务逻辑**零第三方依赖可单测**（991 项，约 25 秒）；评测报告带运行指纹与评测集哈希，**可复现**。
 > 需要 GPU 与 API Key 的真模型链路与离线逻辑之间由"可注入接缝"隔开——接上 BGE-M3 与 DeepSeek 后，核心代码一行不改。
 
-![python](https://img.shields.io/badge/python-%3E%3D3.10-blue) ![tests](https://img.shields.io/badge/tests-767%20passing-brightgreen) ![deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen) ![license](https://img.shields.io/badge/license-MIT-blue)
+![python](https://img.shields.io/badge/python-%3E%3D3.10-blue) ![tests](https://img.shields.io/badge/tests-991%20passing-brightgreen) ![deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen) ![license](https://img.shields.io/badge/license-MIT-blue)
 
 ---
 
 ## 快速开始（5 分钟，无需 GPU / API Key / 任何第三方包）
 
 ```bash
-python -m unittest discover -s tests   # 767 项单测，约 1 秒（12 项因可选依赖跳过）
+python -m unittest discover -s tests   # 991 项单测，约 25 秒（28 项因可选依赖跳过）
 python demos/demo_ingest.py            # 全流程：文件 → 父子块切分 → 双索引 → 混合检索 → Agent → 评测
 python demos/demo_agent2.py            # Agent 六场景：多步任务 / 幻觉工具 / 越权拦截 / 兜底 / 预算 / 断点续跑
 ```
@@ -31,17 +31,33 @@ python demos/demo_agent2.py            # Agent 六场景：多步任务 / 幻觉
 
 **链路**：多格式解析 → 父子块切分（子块检索、父块生成）→ BM25 + 向量双路召回 → RRF 融合 → 交叉编码精排 → 低置信拒答 / 带引用生成 → CLI / FastAPI / SSE 输出。
 
-**真实语料消融**（83 篇文档，评测集 119 条 / 99 条可答，本机 BGE-M3 嵌入 + bge-reranker-v2-m3 精排，报告与运行指纹见 [`reports/run-20261016-100221-991c15/`](reports/run-20261016-100221-991c15/)）：
+**真实语料消融**（83 篇文档 / 303 个块，评测集 119 条 / 99 条可答，本机 BGE-M3 嵌入 + bge-reranker-v2-m3 精排，RTX 3080 Ti；报告与运行指纹见 [`reports/latest/`](reports/latest/)）：
 
 | 配置 | Hit@5 | MRR@5 | NDCG@5 | P95 延迟 |
 |---|---|---|---|---|
-| A 纯向量 | 0.6061 | 0.4524 | 0.4660 | 48.6 ms |
-| B + BM25 / RRF | 0.6667 | 0.4843 | 0.5049 | 52.4 ms |
-| C + Reranker 精排 | **0.6970** | **0.5827** | **0.5874** | 183.5 ms |
-| D + 编号规则召回 | 0.6970 | 0.5827 | 0.5874 | 180.2 ms |
+| A 纯向量 | 0.6061 | 0.4524 | 0.4660 | 51.1 ms |
+| B + BM25 / RRF | 0.6667 | 0.4843 | 0.5049 | 70.1 ms |
+| C + Reranker 精排 | **0.6970** | **0.5827** | **0.5874** | 211.7 ms |
+| D + 编号规则召回 | 0.6970 | 0.5827 | 0.5874 | 189.5 ms |
 
-> D 档与 C 档持平：规则召回只在含编号/型号的查询上生效，当前评测集该类样本不足——这是正确的观察，不是隐藏的问题。
-> `reports/` 另保留了从 Hit@5 0.35 到 0.70 的完整调参历史（5 次运行指纹）。
+**生成层**（LLM-as-Judge，99 条可答样本，评委 `deepseek-chat`，0 次解析失败）：拒答正确率 **89.1%**、忠实度 **4.67 / 5**、幻觉率 **1.01%**（按忠实度低于阈值计）、相关性 4.10 / 准确性 3.59 / 完整性 3.54。
+
+> **D 档与 C 档五个指标完全相同** —— 规则召回在这 99 条上**零增益**，收益不能算到它头上。
+> 规则层保留的原因是它服务于检索之外的场景（编号/型号精确匹配在真实长尾 query 里有价值），
+> 但在本评测集上它就是没有贡献，如实记录。
+> 调参历史（Hit@5 0.35 → 0.70 的 5 次运行）在 [`reports/archive/`](reports/archive/)，
+> 那份目录里的旧报告**不能自证**语料与模型（详见其 README），所以数字一律以 `reports/latest/` 为准。
+
+**数字可自证**（不是"我记得跑的时候没改语料"）：
+
+```bash
+python tools/verify_evidence_chain.py reports/latest
+```
+
+校验三件事：索引里的每篇文档是否仍在磁盘上且内容逐字一致、manifest 是否写明模型名、
+向量维度是否实测且等于 1024。manifest 里带 `model_info`（模型路径 / 维度 / 精排是否加载 / 设备）
+与 `corpus_fingerprint`（语料篇数 + 内容 sha256 + 入索引篇数），全部由运行时实测写入，
+不是手抄常量。CI 里这条校验以 warning 级常驻。
 
 **同一套消融框架可离线复现**（哈希假嵌入，4 篇文档 / 18 条评测，验证框架本身能否拆开各模块贡献，`python demos/demo_ingest.py`）：
 
@@ -190,13 +206,14 @@ conda run -n agent_rag python -m rag1_knowledge_qa.eval --eval-set data/eval/eva
 ## 仓库结构
 
 ```
-core/                21 个共享模块：检索（BM25/RRF/切分）· 评测（指标/消融/Judge）· Agent（状态机/白名单/熔断）· 基建（LLM 客户端/记忆/SSE/服务层）
+core/                27 个共享模块：检索（BM25/RRF/切分）· 评测（指标/消融/Judge）· Agent（状态机/白名单/熔断/可观测）· 基建（LLM 客户端/记忆/SSE/持久化/服务层）
 rag1_knowledge_qa/   项目一装配层：CLI / FastAPI / uvicorn 入口 / 评测命令 / 生产装配
 rag2_kb_agent/       项目二装配层：工具与引擎装配 / 决策解析 / 提示词组装
 demos/               9 个零依赖 demo + demos/live/ 2 个真机 demo 与冒烟脚本
-tests/               767 项零依赖单测（含工程配置一致性守护：Makefile 路径、CI 边界、行尾、密钥防护）
-tools/               语料与评测集生成器（固定 seed，可复现）
+tests/               991 项零依赖单测（含工程配置一致性守护：Makefile 路径、CI 边界、行尾、密钥防护）
+tools/               语料与评测集生成器（固定 seed）+ 数字证据链校验器
 data/                83 篇语料 + 119 条评测集（gold 标注）+ 生成脚本的输入
+reports/             latest/ 当前唯一权威报告；archive/ 调参历史（旧报告不可自证，见其 README）
 reports/             历次评测运行（含运行指纹、评测集 sha256、消融表、Badcase）
 docs/                完整技术笔记（历史版 README）
 ```

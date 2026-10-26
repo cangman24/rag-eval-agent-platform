@@ -3,7 +3,7 @@
 #
 # ★ 这个 workflow 的核心卖点是**它跑得极快**，而这个快是有设计依据的：
 #
-#   全库 807 项单测零第三方依赖（CI 零依赖环境自动跳过 12 项 LangGraph
+#   全库 988 项单测零第三方依赖（CI 零依赖环境自动跳过 28 项 LangGraph
 #   真库测试）。所以 CI 里**不需要装 torch**（2.5GB）、不需要下模型、
 #   不需要 API Key，也不需要开数据库服务。ubuntu job 约 10 秒、
 #   Windows runner 约 1 分钟内结束（含 checkout 与 runner 启动）。
@@ -86,6 +86,7 @@ jobs:
           python -m unittest tests.test_llm_stream tests.test_service_stream_tokens -v
           python -m unittest tests.test_mcp_server tests.test_mcp_client tests.test_engineering_config -v
           python -m unittest tests.test_doc_vision tests.test_doc_vision_pdf -v
+          python -m unittest tests.test_evidence_chain -v
         shell: bash
 
       - name: 语法全库扫描（含 __init__.py 的 BOM 问题）
@@ -184,6 +185,22 @@ jobs:
               sys.exit(1)
           print('✓ 规模与标注完整性检查通过')
           PY
+
+      # ★ 这条把「报告里的数字能不能信」变成机器问题：
+      #   语料是否被改过、模型名是否写明、向量维度是否实测。
+      #   这里设成告警而不是硬失败——reports/latest 由本机 GPU 重跑产生，
+      #   CI 上没有模型权重，缺报告是常态而非代码缺陷。
+      - name: 数字证据链校验（reports/latest）
+        run: |
+          set +e
+          python tools/verify_evidence_chain.py reports/latest
+          code=$?
+          if [ "$code" -eq 0 ]; then
+            echo "::notice::数字证据链完整"
+          else
+            echo "::warning::证据链有缺口（code=$code）；有 GPU 的机器上重跑评测后应恢复"
+          fi
+          exit 0
 
   # ============================================================ 静态检查
   lint:
