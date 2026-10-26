@@ -41,7 +41,11 @@ EXPECTED_DIM = 1024
 def check_corpus(chunks_path: str, raw_dir: str) -> Tuple[int, int, List[str]]:
     """索引语料 vs 磁盘语料。返回 (索引篇数, 当前篇数, 结论行)。"""
     if not os.path.exists(chunks_path):
-        return 0, 0, [f"✗ 找不到索引文件 {chunks_path}（报告数字无语料依据）"]
+        # ★ 索引用 .gitignore 排除（它可由 data/raw + 一条 ingest 命令重建），
+        #   所以"仓库里没有索引"是设计决定，不是证据缺口 —— 记 △ 并说明怎么补齐，
+        #   否则分仓（无索引产物）会永远告警，告警就变成噪音了。
+        return 0, 0, [f"△ 索引文件不存在：{chunks_path}"
+                      f"（索引不随仓库分发；先跑 ingest 再校验，可补齐这一项）"]
 
     with open(chunks_path, encoding="utf-8") as f:
         chunks = json.load(f).get("chunks", [])

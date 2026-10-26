@@ -120,10 +120,12 @@ class TestCheckCorpus(unittest.TestCase):
         self.assertTrue(any(n.startswith("△ 索引未包含") for n in notes))
         self.assertFalse([n for n in notes if n.startswith("✗")])
 
-    def test_missing_chunks_file(self):
+    def test_missing_chunks_file_is_only_a_note(self):
+        """索引不随仓库分发是设计决定（可 ingest 重建），不该算证据缺口。"""
         write_corpus(self.raw)
         _, _, notes = check_corpus(os.path.join(self.tmp, "nope.json"), self.raw)
-        self.assertTrue(any(n.startswith("✗ 找不到索引文件") for n in notes))
+        self.assertTrue(any(n.startswith("△ 索引文件不存在") for n in notes))
+        self.assertFalse([n for n in notes if n.startswith("✗")])
 
 
 class TestCheckModel(unittest.TestCase):
