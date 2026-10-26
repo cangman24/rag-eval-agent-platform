@@ -161,6 +161,29 @@ class LLMResult:
         return self.prompt_tokens + self.completion_tokens
 
 
+@dataclass
+class LLMDelta:
+    """流式增量。
+
+    为什么不用 LLMResult：流式下"完整结果"在最后一个 delta 之前并不存在。
+    让每一帧只带**增量**，调用方自己攒正文；`done=True` 那帧带 usage 与首字延迟。
+    """
+    text: str = ""
+    done: bool = False
+    model: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    # 首字延迟（ms）：只在第一个有内容的 delta 上赋值，整轮共用一个数
+    first_token_ms: Optional[float] = None
+    latency_ms: float = 0.0
+    attempts: int = 1
+    # 全文（只在 done 帧上有值）
+    # ★ 为什么不复用 text：text 的语义是"本帧新增"，调用方普遍用
+    #   "".join(d.text) 拼正文。done 帧若也塞全文，就会被拼两遍 ——
+    #   这个坑在写测试时立刻现形（'答答' != '答'）。语义分开，谁也不坑谁。
+    full_text: str = ""
+
+
 # --------------------------------------------------------------------- 客户端
 class LLMClient:
     """OpenAI 兼容 chat 客户端。
@@ -187,6 +210,7 @@ class LLMClient:
         timeout: float = 60.0,
         sleep: Callable[[float], None] = time.sleep,
         jitter: bool = True,
+        stream_transport: Optional[Callable[..., Any]] = None,
     ) -> None:
         self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
         self.base_url = base_url
@@ -199,13 +223,16 @@ class LLMClient:
         self._sleep = sleep
         self._jitter = jitter
         self._transport = transport
+        self._stream_transport = stream_transport
         self._client = None
         # 成本统计（评测报告里要写"花了多少钱"）
         self.usage = {"calls": 0, "cached": 0, "prompt_tokens": 0,
-                      "completion_tokens": 0, "errors": 0, "retries": 0}
+                      "completion_tokens": 0, "errors": 0, "retries": 0,
+                      "stream_calls": 0}
 
     # -------------------------------------------------- 默认 transport
-    def _default_transport(self, messages: Sequence[dict], **kw) -> dict:
+    def _ensure_client(self):
+        """懒建 openai 客户端（不 import 大包也能用注入 transport 跑测试）。"""
         if self._client is None:
             try:
                 from openai import OpenAI  # type: ignore
@@ -218,10 +245,24 @@ class LLMClient:
                 )
             self._client = OpenAI(api_key=self.api_key, base_url=self.base_url,
                                   timeout=self.timeout)
-        resp = self._client.chat.completions.create(
+        return self._client
+
+    def _default_transport(self, messages: Sequence[dict], **kw) -> dict:
+        client = self._ensure_client()
+        resp = client.chat.completions.create(
             model=kw.pop("model", self.model), messages=list(messages), **kw
         )
         return resp.model_dump() if hasattr(resp, "model_dump") else dict(resp)
+
+    def _default_stream_transport(self, messages: Sequence[dict], **kw):
+        """默认流式 transport：产出 OpenAI 兼容的 chunk dict。"""
+        client = self._ensure_client()
+        model = kw.pop("model", self.model)
+        kw["stream"] = True
+        for chunk in client.chat.completions.create(
+            model=model, messages=list(messages), **kw
+        ):
+            yield chunk.model_dump() if hasattr(chunk, "model_dump") else dict(chunk)
 
     # -------------------------------------------------- 错误分类
     @staticmethod
@@ -326,6 +367,136 @@ class LLMClient:
         self.usage["errors"] += 1
         raise LLMError(f"重试耗尽: {last_exc}")
 
+    # -------------------------------------------------- 流式
+    def can_stream(self) -> bool:
+        """当前配置能否做**真** token 级流式。
+
+        ★ 判断标准刻意严格：注入了整段式 `transport`（fake 替身）时返回 False。
+          否则测试里的假 transport 会被当成流式能力的证据，把"假流式"混进
+          真机结论 —— 这正是本项目反复强调的双轨边界。
+        """
+        if self._stream_transport is not None:
+            return True
+        return self._transport is None and bool(self.api_key)
+
+    def chat_stream(
+        self,
+        messages: Sequence[dict],
+        temperature: float = 0.0,
+        max_tokens: Optional[int] = None,
+        **kwargs: Any,
+    ):
+        """按 token 增量产出 LLMDelta。
+
+        与 chat() 的三处**刻意差异**（每条都是踩过或想清楚才会这么写）：
+
+        1. **默认不读缓存**。缓存命中意味着"没有 token 可流"，硬要吐就成了
+           假流式（一次性到达后切成小块），前端逐字动画看着像真的，但它不是。
+           真流式优先，所以只**写**缓存不**读**缓存 —— 非流式请求（评测）
+           仍能命中这些结果，钱一分不浪费。
+        2. **只在还没吐出任何 token 时重试**。已经有字到达浏览器后再重试，
+           用户会看到答案从半截重头再来一遍，比直接失败更糟。
+        3. 限流桶、错误分类、usage 统计与 chat() 共用同一套设施。
+        """
+        transport = self._stream_transport or self._default_stream_transport
+        model = kwargs.pop("model", self.model)
+
+        payload: Dict[str, Any] = dict(messages=list(messages), model=model,
+                                       temperature=temperature, **kwargs)
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        # include_usage 让最后一帧带上 token 用量（主流 OpenAI 兼容实现都支持）。
+        # 个别厂商不认这个字段会直接 400，那就显式传 stream_options=None 关掉。
+        # ★ 在这儿统一处理，而不是塞进默认 transport —— 否则注入的 transport
+        #   会收到一个它不认识的键，还测不出"关掉"这条分支。
+        if "stream_options" in payload:
+            if payload["stream_options"] is None:
+                payload.pop("stream_options")
+        else:
+            payload["stream_options"] = {"include_usage": True}
+
+        started = time.monotonic()
+        first_ms: Optional[float] = None
+        parts: List[str] = []
+        pt = 0
+        ct = 0
+        attempts = 0
+        emitted = False
+
+        while True:
+            attempts += 1
+            if self.bucket is not None and not self.bucket.acquire():
+                self.usage["errors"] += 1
+                raise LLMError("限流等待超时：请降低并发或提高 rate")
+            try:
+                for raw in transport(**payload):
+                    delta, usage = self._parse_delta(raw)
+                    if usage:
+                        pt = int(usage.get("prompt_tokens") or 0) or pt
+                        ct = int(usage.get("completion_tokens") or 0) or ct
+                    if delta:
+                        if first_ms is None:
+                            first_ms = (time.monotonic() - started) * 1000
+                        parts.append(delta)
+                        emitted = True
+                        yield LLMDelta(text=delta, model=model,
+                                       first_token_ms=first_ms,
+                                       attempts=attempts)
+                break
+            except BaseException as exc:  # noqa: BLE001 - 按类型分流
+                kind = self.classify_error(exc)
+                if emitted or kind is NonRetryableError or attempts > self.max_retries:
+                    self.usage["errors"] += 1
+                    raise kind(f"{type(exc).__name__}: {exc}") from exc
+                self.usage["retries"] += 1
+                delay = self.base_delay * (2 ** (attempts - 1))
+                if self._jitter:
+                    delay *= 0.5 + random.random()
+                self._sleep(delay)
+                # 重试前清空：emitted 为 False，这里其实都是空的，清空是保险
+                parts = []
+                pt = ct = 0
+                first_ms = None
+
+        text = "".join(parts)
+        latency_ms = (time.monotonic() - started) * 1000
+        self.usage["calls"] += 1
+        self.usage["stream_calls"] += 1
+        self.usage["prompt_tokens"] += pt
+        self.usage["completion_tokens"] += ct
+        # 只写缓存不读缓存：非流式调用（评测）能吃到这份结果
+        if self.cache is not None:
+            key = DiskCache.make_key("chat", model, list(messages), temperature,
+                                     max_tokens, False, None)
+            self.cache.set(key, {"text": text, "model": model,
+                                 "prompt_tokens": pt, "completion_tokens": ct})
+
+        yield LLMDelta(done=True, model=model, prompt_tokens=pt,
+                       completion_tokens=ct, first_token_ms=first_ms,
+                       attempts=attempts, latency_ms=latency_ms,
+                       full_text=text)   # text 保持空：本帧没有新增内容
+
+    @staticmethod
+    def _parse_delta(raw: dict) -> tuple:
+        """从一个 chunk 取增量文本与可能出现的 usage。
+
+        `stream_options={"include_usage": True}` 时最后一帧的 choices 是空数组、
+        usage 有值 —— 所以两个都要取，不能"没文本就跳过整帧"。
+        """
+        usage = (raw or {}).get("usage") or {}
+        text = ""
+        try:
+            choices = raw.get("choices") or []
+            if choices:
+                first = choices[0] or {}
+                text = (first.get("delta") or {}).get("content") or ""
+                # 少数兼容实现把首个 chunk 放成 message 而不是 delta
+                if not text:
+                    text = (first.get("message") or {}).get("content") or ""
+        except (AttributeError, TypeError):  # pragma: no cover - 畸形响应
+            text = ""
+        return text, usage
+
     # -------------------------------------------------- 解析
     @staticmethod
     def _parse(raw: dict) -> tuple:
@@ -384,6 +555,24 @@ def is_refusal(answer: str) -> bool:
     if not text:
         return True
     return REFUSAL_PHRASE in text[:_REFUSAL_HEAD_CHARS]
+
+
+def may_still_refuse(buf: str) -> bool:
+    """`buf` 是否**仍可能**是拒答话术的开头（流式用）。
+
+    为什么需要它：流式下每来一个 token 就要决定"能不能放行给前端"。
+    在攒够那段前缀之前，谁也不知道这次会不会拒答；而契约要求
+    「拒答时一条引用都不发」。有了这个判定，就可以：
+      · 前缀已经不可能是拒答话术 -> 立刻放行（延迟只有几个字符的时间）
+      · 已经命中拒答话术         -> 改走 refusal 分支，不发引用
+      · 攒到 60 字符仍不像       -> 放行（与 is_refusal 的判定窗口一致）
+    """
+    s = (buf or "").lstrip(" \n\r\t\u3000*#>-")
+    if not s:
+        return True
+    if s.startswith(REFUSAL_PHRASE):
+        return True
+    return REFUSAL_PHRASE.startswith(s)
 
 ANSWER_PROMPT = """你是严谨的领域知识助手。请**只依据**下面提供的检索片段回答问题。
 

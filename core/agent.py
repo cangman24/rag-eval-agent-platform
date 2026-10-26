@@ -53,6 +53,7 @@ class EventType:
     TOOL_RESULT = "tool_result"
     TOOL_ERROR = "tool_error"
     VERIFY = "verify"
+    TOKEN = "token"          # 生成中的增量文本（token 级真流式）
     ANSWER = "answer"
     REFUSAL = "refusal"
     LIMIT = "limit"

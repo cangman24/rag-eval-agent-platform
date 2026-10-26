@@ -53,6 +53,25 @@ python demos/demo_agent2.py            # Agent 六场景：多步任务 / 幻觉
 
 **设计决策精选**（详见 [`rag1_knowledge_qa/README.md`](rag1_knowledge_qa/README.md) 与 [`docs/technical-notes-v1.md`](docs/technical-notes-v1.md)）：RRF 为何优于加权求和（量纲不可比）；父子块为何用嵌套切分而非位置反查；中文 BM25 的单字噪声与 `min_score`；拒答判定为何必须匹配固定话术；引用为何只在确定作答后推送。
 
+### token 级流式输出（`/chat/stream`）
+
+`LLMClient.chat_stream()` 走 OpenAI 兼容的 `stream=True`，逐 token 下发 `token` 事件；
+`answer` 事件在最后仍发一次全文，前端用全文覆盖增量（保证最终一致，也让老调用方不用改）。
+
+三个刻意的取舍：
+
+- **引用先于答案**：citation 在**放行第一个 token 的同一帧之前**发出。用户先看到"依据是哪几段"，再看着答案长出来。
+- **拒答不发引用**：拒答话术固定为「知识库中未找到…」，流式下没法等生成完才判定。做法是**前缀缓冲** ——
+  攒够一小段前缀再决定：前缀已不可能是拒答话术就立刻放行（延迟 30~80ms，用户无感），
+  命中就静默收完走 refusal，一条 citation 都不发。于是"真流式"与"拒答不发引用"同时成立。
+- **不读缓存、只写缓存**：缓存命中就意味着没有 token 可流，硬吐就是假流式（一次性到达后切片）。
+  流式结果仍写回 `data/cache/llm/`，非流式请求（评测）照样命中，钱不浪费。
+
+没有流式能力时（未配 Key / 注入的是整段式 transport）自动退回整段 `answer` 事件，**接口不变**。
+
+实测（本机 RTX 3080 Ti + DeepSeek，8 次）：模型首 token **0.33~2.0s**，含检索的首字可见 **0.47~2.7s**，波动主要来自网络。
+面板显示的是后者 —— 只报"模型首 token"会把检索那 0.5s 藏起来，对外说「首字 <0.8s」不诚实。
+
 ## 项目二 · 企业知识库 Agent 平台（`rag2_kb_agent`）
 
 面向**多步任务跨系统、长链路易失控**的场景：每一次工具调用都受权限约束，每一轮都可恢复，每一次运行都可回放。
@@ -145,7 +164,9 @@ span 走**独立通道**（不进事件流）—— 事件是扁平时间线、s
 13 类事件定义在 `core/agent.py` 的 `EventType`，span 结构在 `core/observability.py`；
 离线自证跑 `python demos/demo_agent_trace.py`（23 项自检，不需要 GPU / API Key / langgraph）。
 
-> 口径说明：本项目的 SSE 是**节点级实时**；项目一的 `/chat/stream` 是**分阶段**（检索命中 → 引用 → 答案整段），不是 token 级流式 —— 底层 LLM 客户端未接流式生成。
+> 口径说明：两个项目的流式粒度不同，别混着说 ——
+> 项目一 `/chat/stream` 是 **token 级**（LLM 逐 token 生成，`token` 事件增量下发）；
+> 项目二 `/agent/chat/stream` 是 **节点级**（每个 LangGraph 节点执行完推一次轨迹事件）。
 
 ---
 

@@ -48,28 +48,40 @@ class Handler(BaseHTTPRequestHandler):
     # 保持 HTTP/1.0：不设 Content-Length 时靠 EOF 结束，天然支持流式透传
 
     # ------------------------------------------------------------- 路由
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler 约定
+    def _dispatch(self, method: str) -> None:
         if self.path.startswith("/api/"):
-            self._proxy("GET", self.backend_port, strip="/api")
+            self._proxy(method, self.backend_port, strip="/api")
         elif self.path.startswith("/agent/"):
-            self._proxy("GET", self.agent_port, strip=None)
-        else:
+            self._proxy(method, self.agent_port, strip=None)
+        elif method == "GET":
             self._static()
+        else:
+            self.send_error(405, "only /api/* and /agent/* accept %s" % method)
+
+    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler 约定
+        self._dispatch("GET")
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path.startswith("/api/"):
-            self._proxy("POST", self.backend_port, strip="/api")
-        elif self.path.startswith("/agent/"):
-            self._proxy("POST", self.agent_port, strip=None)
-        else:
-            self.send_error(405, "only /api/* and /agent/* accept POST")
+        self._dispatch("POST")
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        # BaseHTTPRequestHandler 只默认实现 GET/HEAD/POST，其余方法不声明就是 501。
+        # 会话删除（DELETE /api/sessions/{id}）走的就是这里。
+        self._dispatch("DELETE")
+
+    def do_PATCH(self) -> None:  # noqa: N802
+        self._dispatch("PATCH")
+
+    def do_PUT(self) -> None:  # noqa: N802
+        self._dispatch("PUT")
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         # 同源本不需要，留着方便有人把页面单独托管时联调
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+        self.send_header("Access-Control-Allow-Methods",
+                         "GET,POST,PATCH,PUT,DELETE,OPTIONS")
         self.end_headers()
 
     # ------------------------------------------------------------- 静态
@@ -107,10 +119,15 @@ class Handler(BaseHTTPRequestHandler):
         # strip="/api"   -> /api/chat/stream 发给后端的 /chat/stream
         # strip=None     -> /agent/chat/stream 原样发（后端路由本身就带 /agent）
         target = self.path[len(strip):] if strip else self.path
-        body = None
-        if method == "POST":
-            length = int(self.headers.get("Content-Length") or 0)
-            body = self.rfile.read(length) if length else b""
+        # 读请求体：有 Content-Length 就读（PATCH 改标题也带 body）；
+        # 无 body 的写方法显式发 0 长度，免得后端等 body 等到超时。
+        raw_len = int(self.headers.get("Content-Length") or 0)
+        if raw_len:
+            body = self.rfile.read(raw_len)
+        elif method in ("POST", "PUT", "PATCH"):
+            body = b""
+        else:
+            body = None
 
         headers = {
             k: v for k, v in self.headers.items()

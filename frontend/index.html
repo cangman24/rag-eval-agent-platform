@@ -77,6 +77,12 @@
   @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 
   .answer{font-size:14.5px;word-break:break-word}
+  /* 生成中的光标：只靠这个让用户知道"还在长"，不用额外提示条 */
+  .answer.streaming::after{
+    content:"▍";display:inline-block;margin-left:1px;color:var(--accent);
+    animation:blink 1s steps(1) infinite;
+  }
+  @keyframes blink{50%{opacity:0}}
   .answer p{margin:0 0 10px}
   .answer p:last-child{margin-bottom:0}
   .answer ul{margin:6px 0 10px;padding-left:20px}
@@ -275,13 +281,34 @@
   .drawer-h h3{margin:0;font-size:14px;font-weight:600}
   .drawer-h .ghost{margin-left:auto}
   .drawer-list{overflow:auto;padding:8px;flex:1}
+  /* 一行 = 打开按钮 + 删除按钮。不用 <button> 套 <button>（HTML 非法），
+     所以外层是 div，里面两个平级 button。 */
   .sess{
-    display:block;width:100%;text-align:left;background:transparent;
-    border:1px solid transparent;border-radius:10px;padding:9px 10px;
-    cursor:pointer;font-family:inherit;color:var(--text);margin-bottom:2px;
+    display:flex;align-items:stretch;gap:2px;margin-bottom:2px;
+    border:1px solid transparent;border-radius:10px;
   }
   .sess:hover{background:var(--accent-soft)}
   .sess.on{border-color:var(--accent);background:var(--accent-soft)}
+  .sess-open{
+    flex:1;min-width:0;display:block;text-align:left;background:transparent;
+    border:0;border-radius:10px;padding:9px 10px;
+    cursor:pointer;font-family:inherit;color:var(--text);
+  }
+  .sess-del{
+    flex:0 0 auto;width:34px;background:transparent;border:0;border-radius:10px;
+    color:var(--muted);cursor:pointer;font-size:15px;line-height:1;
+    opacity:0;transition:opacity .15s, background .15s, color .15s;
+  }
+  .sess:hover .sess-del{opacity:1}
+  .sess-del:hover{color:#dc2626;background:rgba(220,38,38,.12)}
+  /* 二次确认态：变红并把文案换成"删除?"，3 秒后自动复位 */
+  .sess-del.arm{
+    opacity:1;width:auto;padding:0 9px;font-size:11px;font-family:var(--mono);
+    color:#dc2626;background:rgba(220,38,38,.14);
+  }
+  .sess-del:disabled{opacity:.5;cursor:default}
+  /* 触屏没有 hover，删除键必须常驻，否则永远点不到 */
+  @media (hover:none){ .sess-del{opacity:.7} }
   .sess-t{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sess-p{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
   .sess-d{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--mono);opacity:.8}
@@ -341,7 +368,7 @@
       </div>
       <div class="opts">
         <label><input type="checkbox" id="retrieveOnly"> 只看检索（不生成，省钱秒回）</label>
-        <span class="hint" id="hint">SSE 分阶段流式</span>
+        <span class="hint" id="hint">SSE token 级流式</span>
       </div>
     </div>
   </footer>
@@ -462,6 +489,7 @@
        "记住你上次在哪条会话"，真正的数据在 data/app.db。
   */
   var SID = null;
+  var DESTRUCTIVE_HINT = "删除这条会话（不可恢复）";
   var sessList = document.getElementById("sessList");
   var mask = document.getElementById("mask");
   var drawer = document.getElementById("drawer");
@@ -639,17 +667,29 @@
         }
         sessList.innerHTML = "";
         items.forEach(function(s){
-          var b = document.createElement("button");
-          b.className = "sess" + (s.id === SID ? " on" : "");
+          var row = document.createElement("div");
+          row.className = "sess" + (s.id === SID ? " on" : "");
+          row.dataset.id = s.id;
+
+          var open = document.createElement("button");
+          open.className = "sess-open";
           var title = s.title || "（未命名会话）";
           var when = new Date((s.updated_at || 0) * 1000);
-          b.innerHTML = '<div class="sess-t">' + esc(title) + "</div>" +
+          open.innerHTML = '<div class="sess-t">' + esc(title) + "</div>" +
             '<div class="sess-p">' + esc(s.preview || "（空会话）") + "</div>" +
             '<div class="sess-d">' + s.message_count + " 条消息 · " +
               when.toLocaleString("zh-CN", {month:"2-digit", day:"2-digit",
                 hour:"2-digit", minute:"2-digit"}) + "</div>";
-          b.onclick = function(){ openSession(s.id); };
-          sessList.appendChild(b);
+          open.onclick = function(){ openSession(s.id); };
+
+          var del = document.createElement("button");
+          del.className = "sess-del";
+          del.title = DESTRUCTIVE_HINT;
+          del.textContent = "×";
+
+          row.appendChild(open);
+          row.appendChild(del);
+          sessList.appendChild(row);
         });
       })
       .catch(function(e){
@@ -666,6 +706,62 @@
         resetChat();
         renderHistory(d.messages || []);
         closeDrawer();
+      });
+  }
+
+  /* ---------------- 删除会话 ----------------
+     两段式确认，不用原生 confirm（会阻塞、样式不可控、自动化测不了）：
+       第一下 → 按钮变红显示「删除?」，3 秒后自动复位
+       第二下 → 真删
+     列表用事件委托，重建后不用重绑。
+  */
+  sessList.addEventListener("click", function(ev){
+    var del = ev.target && ev.target.closest ? ev.target.closest(".sess-del") : null;
+    if (!del) return;
+    ev.stopPropagation();
+    var row = del.parentNode;
+    var id = row && row.dataset ? row.dataset.id : null;
+    if (!id) return;
+
+    if (!del.classList.contains("arm")){
+      del.classList.add("arm");
+      del.textContent = "删除?";
+      clearTimeout(del._armTimer);
+      del._armTimer = setTimeout(function(){
+        del.classList.remove("arm");
+        del.textContent = "×";
+      }, 3000);
+      return;
+    }
+    clearTimeout(del._armTimer);
+    del.disabled = true;
+    del.textContent = "…";
+    deleteSession(id, row);
+  });
+
+  function deleteSession(id, row){
+    var wasCurrent = (id === SID);
+    return fetch(API + "/sessions/" + encodeURIComponent(id), {method: "DELETE"})
+      .then(function(r){
+        // 404 当成"已经没了"处理：可能是另一个标签页删过，重复点不该报错
+        if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
+        if (row && row.parentNode) row.parentNode.removeChild(row);
+        if (wasCurrent){
+          SID = null;
+          lsSet(null);
+          resetChat();   // 清掉当前对话区，下次提问会自动建新会话
+        }
+        if (!sessList.querySelector(".sess")){
+          sessList.innerHTML = '<div class="sess-empty">还没有历史会话<br>' +
+            '问一句就会自动建一条</div>';
+        }
+      })
+      .catch(function(e){
+        if (row){
+          var del = row.querySelector(".sess-del");
+          if (del){ del.disabled = false; del.classList.remove("arm"); del.textContent = "×"; }
+        }
+        setStatus("bad", "删除失败：" + e.message);
       });
   }
 
@@ -713,6 +809,11 @@
     var answerText = "";
     var refused = false;
     var gotRetrieval = false;
+    // token 级流式：tokenText 是"已到达的增量拼接"，answerText 只在
+    // 最终 answer 事件里出现（全文）。两者分开，避免半途覆盖丢字。
+    var tokenText = "";
+    var streamPaintQueued = false;
+    var gotToken = false;
 
     ta.value = "";
     ta.style.height = "auto";
@@ -740,7 +841,7 @@
           scrollBottom();
         })
         .catch(function(e){ fail(meta, ansEl, e); })
-        .finally(function(){ sendBtn.disabled = false; hint.textContent = "SSE 分阶段流式"; });
+        .finally(function(){ sendBtn.disabled = false; hint.textContent = "SSE token 级流式"; });
       return;
     }
 
@@ -802,8 +903,27 @@
         scrollBottom();
       } else if (ev === "citation"){
         citations.push(d);
+        // 流式时 citation 会早于答案到达 —— 立刻把出处画出来，
+        // 用户先看到"依据是哪几段"，再看着答案一个字一个字长出来
+        paintCites(citesEl, citations);
+        if (!gotToken) scrollBottom();
+      } else if (ev === "token"){
+        gotToken = true;
+        tokenText += (d.text || "");
+        if (ansEl.classList) ansEl.classList.add("streaming");
+        meta.innerHTML = '<span class="pill">生成中</span>';
+        // 每个 token 重建一次 innerHTML 会掉帧：用 rAF 合并到一帧只渲染一次
+        if (!streamPaintQueued){
+          streamPaintQueued = true;
+          requestAnimationFrame(function(){
+            streamPaintQueued = false;
+            ansEl.innerHTML = render(tokenText);
+            scrollBottom();
+          });
+        }
       } else if (ev === "answer"){
         answerText = d.text || "";
+        if (ansEl.classList) ansEl.classList.remove("streaming");
         ansEl.innerHTML = render(answerText);
         meta.innerHTML = fmtMeta(citations, answerText, null);
         paintCites(citesEl, citations);
@@ -811,6 +931,7 @@
         scrollBottom();
       } else if (ev === "refusal"){
         refused = true;
+        if (ansEl.classList) ansEl.classList.remove("streaming");
         qa.classList.add("refused");
         ansEl.innerHTML = render(d.text || "知识库中未找到相关内容。");
         meta.innerHTML = '<span class="pill badge-refuse">已拒答</span><span>知识库中没有可支撑该问题的内容</span>';
@@ -818,6 +939,18 @@
       } else if (ev === "error"){
         fail(meta, ansEl, new Error(d.error || "服务端错误"));
       } else if (ev === "done"){
+        if (ansEl.classList) ansEl.classList.remove("streaming");
+        // 首字可见延迟：从"发起提问"到第一个字出现（含检索）。
+        // 另一个 first_token_ms 只从"调 LLM"算起，对外说性能时不能拿它冒充。
+        if (d.first_visible_ms){
+          var ft = document.createElement("span");
+          ft.className = "pill";
+          ft.title = "首字可见延迟：从提问到第一个字出现（含检索耗时）"
+            + (d.first_token_ms ? "；其中模型首 token "
+                + Math.round(d.first_token_ms) + " ms" : "");
+          ft.textContent = "首字 " + Math.round(d.first_visible_ms) + " ms";
+          meta.appendChild(ft);
+        }
         if (d.latency_ms){
           var p = document.createElement("span");
           p.className = "muted";
@@ -1123,7 +1256,7 @@
     wrap.style.display = m === "chat" ? "" : "none";
     traceWrap.style.display = m === "trace" ? "" : "none";
     if (optRetrieve) optRetrieve.style.display = m === "chat" ? "" : "none";
-    hint.textContent = m === "chat" ? "SSE 分阶段流式" : "SSE 节点级轨迹";
+    hint.textContent = m === "chat" ? "SSE token 级流式" : "SSE 节点级轨迹";
     ta.placeholder = m === "chat"
       ? "输入问题，Enter 发送，Shift+Enter 换行"
       : "输入任务，观察 Agent 的 plan / 工具调用 / 校验轨迹";
