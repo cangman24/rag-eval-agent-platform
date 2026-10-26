@@ -27,6 +27,13 @@ from typing import (Any, Callable, Dict, Iterator, List, Optional, Sequence,
                     Tuple)
 
 from .mcp import ToolError, ToolNotAllowed, ToolRegistry
+from .observability import (
+    KIND_RUN,
+    KIND_TOOL,
+    STATUS_BLOCKED,
+    STATUS_ERROR,
+    SpanTracer,
+)
 
 # --------------------------------------------------------------------- 常量
 DEFAULT_MAX_ROUNDS = 6
@@ -168,6 +175,20 @@ class Checkpointer:
     def reset_events(self, thread_id: str) -> None:
         """清空该 thread 的轨迹（新开一次运行时用）。"""
 
+    # ---------------------------------------------------- span（耗时归因）
+    # ★ 与事件分开存：事件是扁平序列（画时间线），span 是树（画甘特条）。
+    #   两者数据形状不同，混在一个文件里两头都不好解析。
+    def append_spans(self, thread_id: str,
+                     spans: Sequence[Dict[str, Any]]) -> None:
+        """追加一批已闭合的 span。"""
+
+    def load_spans(self, thread_id: str) -> List[Dict[str, Any]]:
+        """读取该 thread 的 span 列表（可用 core.observability 重建为树）。"""
+        return []
+
+    def reset_spans(self, thread_id: str) -> None:
+        """清空该 thread 的 span（新开一次运行时用）。"""
+
 
 
 class InMemoryCheckpointer(Checkpointer):
@@ -176,6 +197,7 @@ class InMemoryCheckpointer(Checkpointer):
     def __init__(self) -> None:
         self._store: Dict[str, str] = {}
         self._events: Dict[str, List[Dict[str, Any]]] = {}
+        self._spans: Dict[str, List[Dict[str, Any]]] = {}
         self._lock = threading.Lock()
         self.saves = 0
 
@@ -209,6 +231,19 @@ class InMemoryCheckpointer(Checkpointer):
     def reset_events(self, thread_id: str) -> None:
         with self._lock:
             self._events.pop(thread_id, None)
+
+    def append_spans(self, thread_id: str,
+                     spans: Sequence[Dict[str, Any]]) -> None:
+        with self._lock:
+            self._spans.setdefault(thread_id, []).extend(spans)
+
+    def load_spans(self, thread_id: str) -> List[Dict[str, Any]]:
+        with self._lock:
+            return list(self._spans.get(thread_id, []))
+
+    def reset_spans(self, thread_id: str) -> None:
+        with self._lock:
+            self._spans.pop(thread_id, None)
 
 
 class JsonFileCheckpointer(Checkpointer):
@@ -295,6 +330,44 @@ class JsonFileCheckpointer(Checkpointer):
         if os.path.exists(fp):
             os.remove(fp)
 
+    def _spans_file(self, thread_id: str) -> str:
+        """span 文件：同样是 JSONL（理由同 _events_file）。
+
+        用 `.spans.jsonl` 与事件的 `.events.jsonl` 区分；
+        两者都不是 `.json`，所以 `list_threads` 不会把它们误当成 thread。
+        """
+        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in thread_id)
+        return os.path.join(self.path, f"{safe}.spans.jsonl")
+
+    def append_spans(self, thread_id: str,
+                     spans: Sequence[Dict[str, Any]]) -> None:
+        fp = self._spans_file(thread_id)
+        with open(fp, "a", encoding="utf-8") as f:
+            for sp in spans:
+                f.write(json.dumps(sp, ensure_ascii=False, default=str))
+                f.write("\n")
+
+    def load_spans(self, thread_id: str) -> List[Dict[str, Any]]:
+        fp = self._spans_file(thread_id)
+        if not os.path.exists(fp):
+            return []
+        out: List[Dict[str, Any]] = []
+        with open(fp, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue      # 半截行：跳过，不让整棵树的回放失败
+        return out
+
+    def reset_spans(self, thread_id: str) -> None:
+        fp = self._spans_file(thread_id)
+        if os.path.exists(fp):
+            os.remove(fp)
+
 
 # --------------------------------------------------------------------- 结果
 @dataclass
@@ -359,6 +432,24 @@ class AgentEngine:
         # 上一次运行的最终状态（run / run_stream 都会设置）
         # —— 与 LangGraphAgentEngine 保持一致，上层代码无需分支
         self.last_state: Optional[AgentState] = None
+        # 耗时归因（span 树）—— 同样与 LangGraph 版保持一致，
+        # 面板不该为"现在跑的是哪一版引擎"写分支
+        self._tracer = SpanTracer(clock=clock)
+        self.last_spans: List[Dict[str, Any]] = []
+
+    # ------------------------------------------------------------ 耗时归因
+    def _span_sink(self, thread_id: str) -> Callable[[Dict[str, Any]], None]:
+        """span 一闭合就落盘（旁路：失败只吞 OSError，不打断推理）。"""
+
+        def _sink(d: Dict[str, Any]) -> None:
+            if self.checkpointer is None:
+                return
+            try:
+                self.checkpointer.append_spans(thread_id, [d])
+            except OSError:  # pragma: no cover
+                pass
+
+        return _sink
 
     # ------------------------------------------------------------ 白名单
     def route(self, task_type: str) -> List[str]:
@@ -401,6 +492,12 @@ class AgentEngine:
         if state is None:
             state = AgentState(query=query, thread_id=tid, started_at=self._clock())
 
+        # 耗时归因：span 树每次运行重开，落盘回调指向本 thread。
+        # ★ 根 span 手动 start/finish（而不是 with）：本函数有多个 return 点，
+        #   用 with 要么大改缩进、要么漏掉提前 return 的路径。
+        self._tracer.reset(sink=self._span_sink(tid))
+        root = self._tracer.start("run", KIND_RUN, thread_id=tid,
+                                  query=(query or "")[:80])
         try:
             if not state.plan:
                 emit(EventType.START, query=query, thread_id=tid)
@@ -472,8 +569,11 @@ class AgentEngine:
                 emit(EventType.TOOL_CALL, tool=tool_name, args=args,
                      round=state.rounds)
                 try:
+                    tsp = self._tracer.start(f"tool:{tool_name}", KIND_TOOL,
+                                             tool=tool_name)
                     result = self.registry.call(tool_name, args,
                                                 allowed=state.allowed_tools)
+                    self._tracer.finish(tsp)
                     state.tool_calls += 1
                     state.last_observation = json_safe(result)
                     state.scratchpad.append({
@@ -487,6 +587,8 @@ class AgentEngine:
                     emit(EventType.TOOL_RESULT, tool=tool_name, ok=True,
                          result=state.last_observation)
                 except ToolNotAllowed as exc:
+                    self._tracer.finish(tsp, status=STATUS_BLOCKED,
+                                        error=str(exc))
                     state.scratchpad.append({
                         "type": "tool_call", "tool": tool_name, "args": args,
                         "ok": False, "error": str(exc), "blocked": True,
@@ -494,6 +596,8 @@ class AgentEngine:
                     emit(EventType.TOOL_ERROR, tool=tool_name, error=str(exc),
                          message=str(exc), blocked=True)
                 except ToolError as exc:
+                    self._tracer.finish(tsp, status=STATUS_ERROR,
+                                        error=str(exc))
                     state.tool_calls += 1
                     state.scratchpad.append({
                         "type": "tool_call", "tool": tool_name, "args": args,
@@ -519,11 +623,19 @@ class AgentEngine:
 
         except Exception as exc:  # noqa: BLE001 - 顶层兜底，保证 checkpoint 落盘
             state.stop_reason = "error"
+            self._tracer.finish(root, status=STATUS_ERROR,
+                                error=f"{type(exc).__name__}: {exc}")
             self._save(state)
             emit(EventType.ERROR, error=f"{type(exc).__name__}: {exc}")
             self.last_state = state
             return AgentRun(state=state, events=events,
                             error=f"{type(exc).__name__}: {exc}")
+        finally:
+            # 幂等：正常路径已 finish 过就不覆盖；异常路径在上面已标 error。
+            # close_all 兜底闭合工具 span（异常打断时它们可能还开着）。
+            self._tracer.finish(root)
+            self._tracer.close_all()
+            self.last_spans = self._tracer.to_dicts()
 
     # ------------------------------------------------------------ 辅助
     def _save(self, state: AgentState) -> None:

@@ -81,6 +81,7 @@ jobs:
           python -m unittest tests.test_core tests.test_pipeline tests.test_evaluation -v
           python -m unittest tests.test_judge_runner tests.test_eval_cli tests.test_agent_eval -v
           python -m unittest tests.test_agent tests.test_agent_langgraph tests.test_agent_stream tests.test_memory -v
+          python -m unittest tests.test_observability tests.test_agent_spans -v
           python -m unittest tests.test_service tests.test_loaders_sse tests.test_ingest tests.test_cli tests.test_decisions -v
           python -m unittest tests.test_mcp_server tests.test_mcp_client tests.test_engineering_config -v
           python -m unittest tests.test_doc_vision tests.test_doc_vision_pdf -v

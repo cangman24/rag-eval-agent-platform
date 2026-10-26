@@ -9,6 +9,7 @@
     ③ 熔断可观测          max_rounds -> limit
     ④ 轨迹能落盘能回放    checkpointer 的 events.jsonl 往返一致
     ⑤ 事件能变成 SSE 帧   core/sse.stream_agent_events 的帧格式正确
+    ⑥ 耗时归因            span 树 -> 甘特条 / 瓶颈 / 错误节点路径
 
 ★ 零依赖可跑：没有 langgraph 时 make_agent_engine 会自动回退到自实现版
   AgentEngine，两版 run_stream 的**事件内容与顺序一致**（差别只在到达时机：
@@ -22,6 +23,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -30,6 +32,7 @@ from core.agent import (  # noqa: E402
 )
 from core.agent_langgraph import make_agent_engine  # noqa: E402
 from core.mcp import ToolRegistry  # noqa: E402
+from core.observability import analyze  # noqa: E402
 from core.sse import parse_sse, stream_agent_events  # noqa: E402
 
 CHECKS: list = []
@@ -57,6 +60,10 @@ def build_registry() -> ToolRegistry:
         query: 关键词
         top_k: 条数
         """
+        # ★ 演示用：真实检索（BGE-M3 嵌入 + 精排）确实要花上百毫秒，
+        #   这里用 sleep 模拟，好让 ⑥ 的甘特条看得出"谁占了大头"。
+        #   没有耗时的甘特条是一排等宽的条，什么都说明不了。
+        time.sleep(0.12)
         return {"count": 1, "hits": [{"id": "制度#p1#c0", "text": "复核要求"}]}
 
     @reg.tool(description="查询工单")
@@ -199,6 +206,45 @@ def main() -> int:
     ok("帧的 event 名与事件类型一致", names == types(ran))
     ok("帧带递增 id（断线重连用）",
        [p.get("id") for p in parsed] == [str(i + 1) for i in range(len(parsed))])
+
+    # ---------------------------------------------------------------- ⑥
+    section("⑥ 耗时归因：span 树 -> 甘特条 / 瓶颈 / 错误节点")
+    e6 = make_engine([{"tool": "kb_search", "args": {"query": "复核"}},
+                      {"final": "答案 B"}], checkpointer=cp)
+    events6 = list(e6.run_stream("制度里的复核要求", thread_id="T-SPAN"))
+    info6 = analyze(e6.last_spans)
+    print("  引擎：%s" % type(e6).__name__)
+    print("  本次 %.1fms · %d 个 span"
+          % (info6["total_ms"], info6["span_count"]))
+    print()
+    print(info6["gantt"])
+    print()
+    ok("拿到 span 树", info6["span_count"] > 0)
+    ok("根 span 是 run（甘特条总时长就是它）",
+       bool(info6["tree"]) and info6["tree"][0]["name"] == "run")
+    tools = [s for s in e6.last_spans if s.get("kind") == "tool"]
+    ok("工具调用有独立 span", len(tools) >= 1)
+    ok("工具 span 有父节点（是嵌套树，不是平铺列表）",
+       all(s.get("parent_id") for s in tools))
+    top = info6["bottlenecks"][0] if info6["bottlenecks"] else None
+    ok("最慢的是工具调用（归因有效，不是摆设）",
+       top is not None and top["kind"] == "tool",
+       ("%s %sms" % (top["name"], top["self_ms"])) if top else "")
+    ok("span 不进事件流（事件序列仍然是纯事件）",
+       all("span" not in str(e["type"]) for e in events6))
+    ok("落盘回放的树与实时一致",
+       analyze(cp.load_spans("T-SPAN"))["tree"] == info6["tree"])
+
+    e6b = make_engine([{"tool": "send_mail", "args": {"to": "ops@x.com"}},
+                       {"final": "兜底答案"}], checkpointer=cp)
+    list(e6b.run_stream("制度要求", thread_id="T-BLOCK"))
+    errs = analyze(e6b.last_spans)["errors"]
+    print("  错误节点：" + ("；".join("%s（%s）" % (e["path"], e["status"])
+                                     for e in errs) or "无"))
+    ok("越权工具留下 blocked span",
+       any(e["status"] == "blocked" for e in errs))
+    ok("错误节点能给出完整路径（run > … > tool:xxx）",
+       bool(errs) and all(e["path"].startswith("run") for e in errs))
 
     # ---------------------------------------------------------------- 汇总
     section("自检汇总")

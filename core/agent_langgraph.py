@@ -41,6 +41,15 @@ from .agent import (
     make_event,
 )
 from .mcp import ToolRegistry
+from .observability import (
+    KIND_NODE,
+    KIND_RUN,
+    KIND_TOOL,
+    STATUS_BLOCKED,
+    STATUS_ERROR,
+    STATUS_LIMIT,
+    SpanTracer,
+)
 
 
 # --------------------------------------------------------------------- 状态 schema
@@ -178,6 +187,11 @@ class LangGraphAgentEngine:
         self._pending: List[Dict[str, Any]] = []
         # 上一次运行的最终状态（run / run_stream 都会设置）
         self.last_state: Optional[AgentState] = None
+        # 耗时归因：span 树。★ 与事件流并行但**互不干扰** ——
+        #   事件是扁平时间线，span 是嵌套树，塞进同一条流会破坏
+        #   「run 与 run_stream 事件序列完全一致」这条不变量（859 项测试盯着）。
+        self._tracer = SpanTracer(clock=clock)
+        self.last_spans: List[Dict[str, Any]] = []
         self._graph = self._build_graph()
 
     # ------------------------------------------------------------ 白名单
@@ -271,17 +285,19 @@ class LangGraphAgentEngine:
 
     # ------------------------------------------------------------ 节点实现
     def _node_intent(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        self._intent_calls += 1
-        query = state["query"]
-        ttype = self.intent_fn(query)
-        allowed = self.route(ttype)
-        self._emit(EventType.INTENT, task_type=ttype, allowed_tools=allowed)
-        return {"task_type": ttype, "allowed_tools": allowed}
+        with self._span("node:" + self.N_INTENT):
+            self._intent_calls += 1
+            query = state["query"]
+            ttype = self.intent_fn(query)
+            allowed = self.route(ttype)
+            self._emit(EventType.INTENT, task_type=ttype, allowed_tools=allowed)
+            return {"task_type": ttype, "allowed_tools": allowed}
 
     def _node_plan(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        plan = self.plan_fn(state["query"], state.get("task_type", "general"))
-        self._emit(EventType.PLAN, steps=plan)
-        return {"plan": list(plan)}
+        with self._span("node:" + self.N_PLAN):
+            plan = self.plan_fn(state["query"], state.get("task_type", "general"))
+            self._emit(EventType.PLAN, steps=plan)
+            return {"plan": list(plan)}
 
     def _node_act(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """模型决策节点：调工具 / 给答案 / 触发熔断。
@@ -301,35 +317,44 @@ class LangGraphAgentEngine:
 
         cur = self._as_state(state)
 
-        limit = self._limit_reached(cur)
-        if limit:
-            self._emit(EventType.LIMIT, reason=limit, rounds=cur.rounds,
-                       tool_calls=cur.tool_calls)
-            return {"stop_reason": limit}
+        with self._span(f"node:{self.N_ACT}", rounds=cur.rounds) as sp:
+            limit = self._limit_reached(cur)
+            if limit:
+                self._emit(EventType.LIMIT, reason=limit, rounds=cur.rounds,
+                           tool_calls=cur.tool_calls)
+                # 熔断也算"错误节点"：不然看不出这轮是为什么提前收场的
+                self._tracer.finish(sp, status=STATUS_LIMIT, error=limit)
+                return {"stop_reason": limit}
 
-        if self.detect_loop(cur):
-            self._emit(EventType.LIMIT, reason="loop_detected", rounds=cur.rounds)
-            return {"stop_reason": "loop_detected"}
+            if self.detect_loop(cur):
+                self._emit(EventType.LIMIT, reason="loop_detected",
+                           rounds=cur.rounds)
+                self._tracer.finish(sp, status=STATUS_LIMIT,
+                                    error="loop_detected")
+                return {"stop_reason": "loop_detected"}
 
-        decision = self.act_fn(cur, list(state.get("allowed_tools", [])))
-        decision = decision or {}
-        rounds = cur.rounds + 1
+            decision = self.act_fn(cur, list(state.get("allowed_tools", [])))
+            decision = decision or {}
+            rounds = cur.rounds + 1
 
-        if decision.get("final") is not None:
-            answer = str(decision.get("final") or "")
-            cites = list(decision.get("citations") or [])
-            self._emit(EventType.ANSWER, text=answer[:200], citations=cites)
-            return {"answer": answer, "citations": cites, "rounds": rounds,
-                    "pending": None}
+            if decision.get("final") is not None:
+                answer = str(decision.get("final") or "")
+                cites = list(decision.get("citations") or [])
+                self._emit(EventType.ANSWER, text=answer[:200], citations=cites)
+                return {"answer": answer, "citations": cites, "rounds": rounds,
+                        "pending": None}
 
-        if decision.get("error"):
-            self._emit(EventType.ERROR, message=str(decision["error"]))
-            return {"answer": str(decision.get("final") or ""), "rounds": rounds,
-                    "stop_reason": "act_error", "pending": None}
+            if decision.get("error"):
+                msg = str(decision["error"])
+                self._emit(EventType.ERROR, message=msg)
+                self._tracer.finish(sp, status=STATUS_ERROR, error=msg)
+                return {"answer": str(decision.get("final") or ""),
+                        "rounds": rounds, "stop_reason": "act_error",
+                        "pending": None}
 
-        self._emit(EventType.TOOL_CALL, tool=decision.get("tool"),
-                   args=decision.get("args") or {})
-        return {"rounds": rounds, "pending": decision}
+            self._emit(EventType.TOOL_CALL, tool=decision.get("tool"),
+                       args=decision.get("args") or {})
+            return {"rounds": rounds, "pending": decision}
 
     def _node_tools(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """工具执行节点：白名单硬校验 + 调用 + 记录。纯函数，只返回更新。"""
@@ -340,45 +365,59 @@ class LangGraphAgentEngine:
         scratchpad = list(state.get("scratchpad", []))
         tool_calls = int(state.get("tool_calls", 0))
 
-        if tool not in allowed:
-            # ★ 白名单是硬约束：不在清单里直接拒绝，且**不消耗**工具预算
-            scratchpad.append({"type": "tool_call", "tool": tool, "args": args,
-                               "blocked": True, "ok": False,
-                               "sig": f"{tool}:blocked"})
-            self._emit(EventType.TOOL_ERROR, tool=tool, blocked=True,
-                       message=f"工具 {tool} 不在当前意图的允许清单 {allowed} 内")
-            return {"scratchpad": scratchpad, "pending": None}
+        with self._span("node:" + self.N_TOOLS) as nsp:
+            if tool not in allowed:
+                # ★ 白名单是硬约束：不在清单里直接拒绝，且**不消耗**工具预算
+                msg = f"工具 {tool} 不在当前意图的允许清单 {allowed} 内"
+                scratchpad.append({"type": "tool_call", "tool": tool,
+                                   "args": args, "blocked": True, "ok": False,
+                                   "sig": f"{tool}:blocked"})
+                # 被拦也要留一个 span：面板上那个红色节点就是它，
+                # "定位错误节点"总得有东西可指
+                with self._span(f"tool:{tool}", KIND_TOOL, tool=tool) as tsp:
+                    self._tracer.finish(tsp, status=STATUS_BLOCKED, error=msg)
+                self._emit(EventType.TOOL_ERROR, tool=tool, blocked=True,
+                           message=msg)
+                return {"scratchpad": scratchpad, "pending": None}
 
-        if tool_calls >= self.max_tool_calls:
-            self._emit(EventType.LIMIT, reason="max_tool_calls")
-            return {"stop_reason": "max_tool_calls", "pending": None}
+            if tool_calls >= self.max_tool_calls:
+                self._emit(EventType.LIMIT, reason="max_tool_calls")
+                self._tracer.finish(nsp, status=STATUS_LIMIT,
+                                    error="max_tool_calls")
+                return {"stop_reason": "max_tool_calls", "pending": None}
 
-        try:
-            result = self.registry.call(tool, args)
-            scratchpad.append({
-                "type": "tool_call", "tool": tool, "args": args, "ok": True,
-                "result": result,
-                # 死循环检测用的签名：同样的工具 + 同样的参数 = 一样的 sig
-                "sig": f"{tool}:{sorted((str(k), str(v)) for k, v in args.items())}",
-            })
-            self._emit(EventType.TOOL_RESULT, tool=tool, ok=True)
-            return {"scratchpad": scratchpad, "pending": None,
-                    "tool_calls": tool_calls + 1, "last_observation": result}
-        except Exception as exc:  # noqa: BLE001 - 工具异常不该让整轮崩掉
-            scratchpad.append({
-                "type": "tool_call", "tool": tool, "args": args, "ok": False,
-                "error": f"{type(exc).__name__}: {exc}",
-                "sig": f"{tool}:error",
-            })
-            self._emit(EventType.TOOL_ERROR, tool=tool, blocked=False,
-                       message=str(exc))
-            return {"scratchpad": scratchpad, "pending": None,
-                    "tool_calls": tool_calls + 1}
+            try:
+                with self._span(f"tool:{tool}", KIND_TOOL, tool=tool) as tsp:
+                    result = self.registry.call(tool, args)
+                    self._tracer.finish(tsp, status="ok")
+                scratchpad.append({
+                    "type": "tool_call", "tool": tool, "args": args, "ok": True,
+                    "result": result,
+                    # 死循环检测用的签名：同样的工具 + 同样的参数 = 一样的 sig
+                    "sig": f"{tool}:{sorted((str(k), str(v)) for k, v in args.items())}",
+                })
+                self._emit(EventType.TOOL_RESULT, tool=tool, ok=True)
+                return {"scratchpad": scratchpad, "pending": None,
+                        "tool_calls": tool_calls + 1,
+                        "last_observation": result}
+            except Exception as exc:  # noqa: BLE001 - 工具异常不该让整轮崩掉
+                self._tracer.finish(tsp, status=STATUS_ERROR, error=str(exc))
+                scratchpad.append({
+                    "type": "tool_call", "tool": tool, "args": args,
+                    "ok": False, "error": f"{type(exc).__name__}: {exc}",
+                    "sig": f"{tool}:error",
+                })
+                self._emit(EventType.TOOL_ERROR, tool=tool, blocked=False,
+                           message=str(exc))
+                return {"scratchpad": scratchpad, "pending": None,
+                        "tool_calls": tool_calls + 1}
 
     def _node_verify(self, state: Dict[str, Any]) -> Dict[str, Any]:
         answer = state.get("answer") or ""
-        ok, reason = self.verify_fn(self._as_state(state), answer)
-        self._emit(EventType.VERIFY, ok=ok, reason=reason)
+        with self._span("node:" + self.N_VERIFY) as sp:
+            ok, reason = self.verify_fn(self._as_state(state), answer)
+            self._emit(EventType.VERIFY, ok=ok, reason=reason)
+            self._tracer.finish(sp, ok=bool(ok), reason=reason)
         updates: Dict[str, Any] = {"verified": bool(ok), "verify_reason": reason}
         if not ok and int(state.get("rounds", 0)) < self.max_rounds:
             # 不通过则清空答案回到 act（让模型再试一次）
@@ -392,6 +431,13 @@ class LangGraphAgentEngine:
         self._emit(EventType.DONE, reason=state.get("stop_reason") or "verified",
                    rounds=state.get("rounds", 0),
                    tool_calls=state.get("tool_calls", 0))
+        # 熔断收尾时把根因写进 span，面板才看得出"这次为什么提前结束"。
+        # ★ 标在 finalize 自己的 span 上而不是根节点：根一旦标红，
+        #   整棵树全红，反而看不出是哪个节点出的问题。
+        reason = state.get("stop_reason") or ""
+        with self._span("node:" + self.N_FINALIZE) as sp:
+            if reason and reason != "verified":
+                self._tracer.finish(sp, status=STATUS_LIMIT, error=reason)
         return {"finished": True, "answer": answer}
 
     # ------------------------------------------------------------ 辅助
@@ -421,6 +467,29 @@ class LangGraphAgentEngine:
         )
         s.scratchpad = list(d.get("scratchpad", []))
         return s
+
+    # ------------------------------------------------------------ 耗时归因
+    def _span(self, name: str, kind: str = KIND_NODE, **attrs: Any):
+        """开一个 span（详见 core/observability.py）。"""
+        return self._tracer.span(name, kind, **attrs)
+
+    def _span_sink(self, thread_id: str) -> Callable[[Dict[str, Any]], None]:
+        """span 一闭合就落盘（不等运行结束）。
+
+        ★ 为什么不用"结束时一次性写"：进程被杀时，一次性写会丢掉整棵树；
+          逐条写至少保住已经跑完的部分。落盘失败只吞 OSError ——
+          观测是旁路，绝不能因为它把推理打断。
+        """
+
+        def _sink(d: Dict[str, Any]) -> None:
+            if self.checkpointer is None:
+                return
+            try:
+                self.checkpointer.append_spans(thread_id, [d])
+            except OSError:  # pragma: no cover - 旁路失败不影响主流程
+                pass
+
+        return _sink
 
     # ------------------------------------------------------------ 主流程
     def _drain(self) -> List[Dict[str, Any]]:
@@ -470,81 +539,100 @@ class LangGraphAgentEngine:
         self._events = []
         self._pending = []
         self.last_state = None
+        self.last_spans = []
         # 新开一次运行：清空旧轨迹。续跑不删 —— 回放时要能看到
         # 「首次运行 + 续跑」的完整轨迹，删掉就只剩后半段了。
         if not resume and self.checkpointer is not None:
             self.checkpointer.reset_events(tid)
+            try:
+                self.checkpointer.reset_spans(tid)
+            except OSError:  # pragma: no cover - 旁路失败不影响主流程
+                pass
+        # span 树每次运行重开，落盘回调指向本 thread
+        self._tracer.reset(sink=self._span_sink(tid))
 
-        self._emit(EventType.START, query=query, thread_id=tid,
-                   engine="langgraph")
-        for ev in self._flush(tid):
-            yield ev
-
-        init: Dict[str, Any] = {
-            "query": query,
-            "thread_id": tid,
-            "task_type": "general",
-            "allowed_tools": [],
-            "plan": [],
-            "scratchpad": [],
-            "rounds": 0,
-            "tool_calls": 0,
-            "started_at": self._clock(),
-            "answer": "",
-            "citations": [],
-            "verified": False,
-            "verify_reason": "",
-            "refused": False,
-            "finished": False,
-            "stop_reason": "",
-            "last_observation": None,
-            "pending": None,
-        }
-
-        # 续跑：把检查点状态灌回初始状态
-        if resume and self.checkpointer is not None:
-            saved = self.checkpointer.load(tid)
-            if saved is not None:
-                init.update(saved.to_dict())
-                self._emit(EventType.RESUME, thread_id=tid, rounds=saved.rounds,
-                           tool_calls=saved.tool_calls, finished=saved.finished)
-                for ev in self._flush(tid):
-                    yield ev
-                if saved.finished:
-                    self._emit(EventType.DONE, reason="已完成的检查点，无需续跑")
-                    for ev in self._flush(tid):
-                        yield ev
-                    self.last_state = saved
-                    return
-
-        final: Dict[str, Any] = dict(init)
-        try:
-            if hasattr(self._graph, "stream"):
-                # ★ 用 stream 而不是 invoke：能在每个节点后落 checkpoint，
-                #   这才是"可恢复"的前提（invoke 只在结束时返回）。
-                #   顺带：节点粒度也正是"实时轨迹"的推送节拍。
-                for chunk in self._graph.stream(init):
-                    for _node, updates in (chunk or {}).items():
-                        if isinstance(updates, dict):
-                            final.update(updates)
-                    self._save(self._as_state(final))
-                    for ev in self._flush(tid):
-                        yield ev
-            else:
-                final.update(self._graph.invoke(init) or {})
-                for ev in self._flush(tid):
-                    yield ev
-        except Exception as exc:  # noqa: BLE001
-            self._emit(EventType.ERROR, message=f"图执行失败: {exc}")
-            final["stop_reason"] = "graph_error"
+        # ★ 根 span 包住整次运行：甘特条的总时长就是它
+        with self._span("run", KIND_RUN, thread_id=tid,
+                        query=(query or "")[:80]) as root:
+            self._emit(EventType.START, query=query, thread_id=tid,
+                       engine="langgraph")
             for ev in self._flush(tid):
                 yield ev
 
-        state = self._as_state(final)
-        self._save(state)
-        if not state.finished:
-            state.finished = True
-        self.last_state = state
+            init: Dict[str, Any] = {
+                "query": query,
+                "thread_id": tid,
+                "task_type": "general",
+                "allowed_tools": [],
+                "plan": [],
+                "scratchpad": [],
+                "rounds": 0,
+                "tool_calls": 0,
+                "started_at": self._clock(),
+                "answer": "",
+                "citations": [],
+                "verified": False,
+                "verify_reason": "",
+                "refused": False,
+                "finished": False,
+                "stop_reason": "",
+                "last_observation": None,
+                "pending": None,
+            }
+
+            # 续跑：把检查点状态灌回初始状态
+            if resume and self.checkpointer is not None:
+                saved = self.checkpointer.load(tid)
+                if saved is not None:
+                    init.update(saved.to_dict())
+                    self._emit(EventType.RESUME, thread_id=tid,
+                               rounds=saved.rounds, tool_calls=saved.tool_calls,
+                               finished=saved.finished)
+                    for ev in self._flush(tid):
+                        yield ev
+                    if saved.finished:
+                        self._emit(EventType.DONE,
+                                   reason="已完成的检查点，无需续跑")
+                        for ev in self._flush(tid):
+                            yield ev
+                        self.last_state = saved
+                        return
+
+            final: Dict[str, Any] = dict(init)
+            try:
+                if hasattr(self._graph, "stream"):
+                    # ★ 用 stream 而不是 invoke：能在每个节点后落 checkpoint，
+                    #   这才是"可恢复"的前提（invoke 只在结束时返回）。
+                    #   顺带：节点粒度也正是"实时轨迹"的推送节拍。
+                    for chunk in self._graph.stream(init):
+                        for _node, updates in (chunk or {}).items():
+                            if isinstance(updates, dict):
+                                final.update(updates)
+                        self._save(self._as_state(final))
+                        for ev in self._flush(tid):
+                            yield ev
+                else:
+                    final.update(self._graph.invoke(init) or {})
+                    for ev in self._flush(tid):
+                        yield ev
+            except Exception as exc:  # noqa: BLE001
+                self._emit(EventType.ERROR, message=f"图执行失败: {exc}")
+                final["stop_reason"] = "graph_error"
+                self._tracer.finish(root, status=STATUS_ERROR,
+                                    error=f"图执行失败: {exc}")
+                for ev in self._flush(tid):
+                    yield ev
+
+            state = self._as_state(final)
+            self._save(state)
+            if not state.finished:
+                state.finished = True
+            self.last_state = state
+
+        # 兜底闭合：上面 except 吞掉异常的路径上，节点 span 可能没人闭合。
+        # 不兜底的话甘特条上会挂一排 0ms 的条，看起来像"瞬间完成"。
+        self._tracer.close_all()
+        self.last_spans = self._tracer.to_dicts()
 
     def run(
         self,

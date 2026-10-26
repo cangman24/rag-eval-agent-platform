@@ -27,7 +27,8 @@
     POST /agent/chat              一次性执行（返回完整事件数组 + 最终状态）
     POST /agent/chat/stream       SSE 实时推轨迹事件
     GET  /agent/threads           可回放的 thread 列表
-    GET  /agent/trace/{tid}       回放某个 thread 的完整轨迹
+    GET  /agent/trace/{tid}       回放某个 thread 的完整轨迹（含 span 树）
+    GET  /agent/spans/{tid}       只取 span 树（甘特条 / 瓶颈 / 错误节点）
 """
 from __future__ import annotations
 
@@ -47,6 +48,7 @@ except ImportError as exc:  # pragma: no cover - 取决于环境
 
 from core.agent import EventType, InMemoryCheckpointer, JsonFileCheckpointer
 from core.agent_langgraph import langgraph_available, make_agent_engine
+from core.observability import analyze
 from core.sse import SSE_MEDIA_TYPE, stream_agent_events
 from rag2_kb_agent.app import (
     DEFAULT_ROUTE_TABLE, rule_based_intent, rule_based_plan,
@@ -327,7 +329,22 @@ def app_factory(
             "events": events,
             "state": state.to_dict() if state is not None else None,
             "summary": _summarize(events, state),
+            "spans": _span_payload(_load_spans(cp, thread_id)),
         }
+
+    @app.get("/agent/spans/{thread_id}")
+    def spans_only(thread_id: str) -> Dict[str, Any]:
+        """只取 span 树（甘特条 / 瓶颈 / 错误节点）。
+
+        与 `/agent/trace/{tid}` 分开是为了让面板可以**只刷新甘特条**
+        而不必重新拉一遍完整事件流 —— 回放时事件流可能有几百行。
+        """
+        if cp is None:
+            raise HTTPException(404, "未配置 checkpointer，无 span 可回放")
+        spans = _load_spans(cp, thread_id)
+        if not spans:
+            raise HTTPException(404, f"该 thread 没有 span: {thread_id}")
+        return {"thread_id": thread_id, **_span_payload(spans)}
 
     def _run_and_collect(query: str, thread_id: Optional[str], resume: bool
                          ) -> Dict[str, Any]:
@@ -341,6 +358,7 @@ def app_factory(
             "events": events,
             "state": st.to_dict() if st is not None else None,
             "summary": _summarize(events, st),
+            "spans": _span_payload(getattr(engine, "last_spans", []) or []),
             "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
         }
 
@@ -380,6 +398,7 @@ def app_factory(
             engine.run_stream(query, thread_id=thread_id, resume=resume))
         st = engine.last_state
         yield _summary_frame(st, t0)
+        yield _spans_frame(getattr(engine, "last_spans", []) or [])
 
     return app
 
@@ -407,6 +426,37 @@ def _summarize(events: List[Dict[str, Any]], state: Any) -> Dict[str, Any]:
                         if len(ts) >= 2 else 0.0),
         "types": types,
     }
+
+
+def _load_spans(cp: Any, thread_id: str) -> List[Dict[str, Any]]:
+    try:
+        return list(cp.load_spans(thread_id))
+    except Exception:  # noqa: BLE001 - span 是旁路，取不到就当没有
+        return []
+
+
+def _span_payload(spans: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """span 列表 -> 面板要的一切：树 / 甘特条 / 瓶颈 / 错误节点。
+
+    ★ 为什么要 total_ms 而不是让前端自己算：span 的 t0/t1 是**绝对时钟**，
+      前端拿去算占比时容易忽略"根 span 之外还有间隙"，统一在后端算好
+      total_ms 与 pct，前后端口径才一致。
+    """
+    info = analyze(spans or [])
+    return {
+        "count": info["span_count"],
+        "total_ms": info["total_ms"],
+        "tree": info["tree"],
+        "bottlenecks": info["bottlenecks"],
+        "errors": info["errors"],
+        "gantt": info["gantt"],
+    }
+
+
+def _spans_frame(spans: List[Dict[str, Any]]) -> str:
+    """事件推完后的 span 帧：前端不用二次请求就能画甘特条。"""
+    from core.sse import format_sse
+    return format_sse(_span_payload(spans), event="spans")
 
 
 def _summary_frame(state: Any, t0: float) -> str:

@@ -215,6 +215,44 @@
   .tl-item.t-gray .tl-type{background:var(--bg);color:var(--muted)}
   .timeline.only-err .tl-item:not(.t-red){display:none}
   .tl-empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
+
+  /* ---- 耗时归因（span 甘特条）---- */
+  .gantt{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:11px 13px;margin-bottom:14px;box-shadow:var(--shadow)
+  }
+  .gt-head{
+    display:flex;flex-wrap:wrap;gap:9px;align-items:baseline;
+    font-size:12.5px;margin-bottom:10px
+  }
+  .gt-head b{font-weight:650}
+  .gt-total{font-family:var(--mono);color:var(--accent);font-size:12px}
+  .gt-mut{color:var(--muted);font-size:11.5px}
+  .gt-row{display:flex;align-items:center;gap:9px;height:19px;font-size:11.5px}
+  .gt-name{
+    font-family:var(--mono);width:170px;flex:none;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;color:var(--text)
+  }
+  .gt-track{
+    position:relative;flex:1;min-width:80px;height:9px;
+    background:var(--bg);border-radius:5px;overflow:hidden
+  }
+  .gt-bar{
+    position:absolute;top:0;height:9px;border-radius:5px;
+    background:var(--accent);opacity:.85;min-width:2px
+  }
+  .gt-ms{
+    font-family:var(--mono);color:var(--muted);width:74px;
+    text-align:right;flex:none;font-size:11px
+  }
+  .gt-row.k-tool .gt-bar{background:#8b5cf6;opacity:.8}
+  .gt-row.bad .gt-bar{background:#ef4444;opacity:1}
+  .gt-row.bad .gt-name{color:#b91c1c}
+  .gt-err{
+    margin-top:9px;padding-top:8px;border-top:1px dashed var(--border);
+    font-family:var(--mono);font-size:11.5px;color:#b91c1c;line-height:1.6
+  }
+  .gt-err .lbl{color:var(--muted);font-family:inherit}
 </style>
 </head>
 <body>
@@ -251,6 +289,7 @@
           <label><input type="checkbox" id="onlyErr"> 只看错误</label>
         </div>
       </div>
+      <div class="gantt" id="gantt" style="display:none"></div>
       <div class="sum-bar" id="traceSum" style="display:none"></div>
       <div class="timeline" id="timeline"></div>
     </div>
@@ -551,6 +590,7 @@
   var AGENT = "/agent";
   var timeline = document.getElementById("timeline");
   var traceSum = document.getElementById("traceSum");
+  var ganttEl = document.getElementById("gantt");
   var threadSel = document.getElementById("threadSel");
   var onlyErr = document.getElementById("onlyErr");
   var mode = "chat";
@@ -637,6 +677,64 @@
     traceSum.innerHTML = html;
   }
 
+  /* ---------------- 耗时归因（span 甘特条）---------------- */
+  function fmtMs(v){
+    v = Number(v || 0);
+    if (v >= 1000) return (Math.round(v / 100) / 10).toFixed(1) + "s";
+    return (Math.round(v * 10) / 10) + "ms";
+  }
+
+  function renderGantt(sp){
+    if (!sp || !sp.count){ ganttEl.style.display = "none"; return; }
+    ganttEl.style.display = "";
+
+    var rows = [];
+    (function walk(nodes){
+      (nodes || []).forEach(function(n){
+        rows.push(n);
+        walk(n.children || []);
+      });
+    })(sp.tree || []);
+
+    var total = sp.total_ms || 0;
+    var base = rows.length ? rows[0].t0 : 0;     // 根节点起点 = 时间轴原点
+    var span = (total || 1) / 1000;              // 总时长（秒）
+
+    var top = (sp.bottlenecks || [])[0];
+    var html = '<div class="gt-head"><b>耗时归因</b>' +
+      '<span class="gt-total">本次 ' + fmtMs(total) + '</span>' +
+      (top ? '<span class="gt-mut">瓶颈 ' + esc(top.name) + ' 自身 ' +
+             fmtMs(top.self_ms) + '（' + (top.self_pct || 0) + '%）</span>' : "") +
+      '<span class="gt-mut">' + (sp.count || 0) + ' 个 span</span></div>';
+
+    rows.forEach(function(n){
+      var left = total ? Math.max(0, Math.min(100, (n.t0 - base) / span * 100)) : 0;
+      var w = total ? Math.max(0.7, Math.min(100 - left,
+                                            n.duration_ms / total * 100)) : 0;
+      var bad = n.status && n.status !== "ok";
+      var cls = "gt-row" + (n.kind === "tool" ? " k-tool" : "") + (bad ? " bad" : "");
+      html += '<div class="' + cls + '" title="' +
+        esc(n.name + " · " + fmtMs(n.duration_ms) + " · " + (n.status || "") +
+            (n.error ? " · " + n.error : "")) + '">' +
+        '<div class="gt-name" style="padding-left:' + (n.depth || 0) * 12 + 'px">' +
+          esc(n.name) + '</div>' +
+        '<div class="gt-track"><div class="gt-bar" style="left:' +
+          left.toFixed(2) + '%;width:' + w.toFixed(2) + '%"></div></div>' +
+        '<div class="gt-ms">' + fmtMs(n.duration_ms) +
+          ' <span style="opacity:.65">' + (n.pct || 0) + '%</span></div>' +
+        '</div>';
+    });
+
+    if (sp.errors && sp.errors.length){
+      html += '<div class="gt-err"><span class="lbl">错误节点：</span>' +
+        sp.errors.map(function(e){
+          return esc(e.path || e.name) + "（" + esc(e.status || "") +
+                 (e.error ? " · " + esc(e.error) : "") + "）";
+        }).join("<br>") + "</div>";
+    }
+    ganttEl.innerHTML = html;
+  }
+
   function parseFrame(frame){
     var type = "message", dataLines = [];
     frame.split("\n").forEach(function(line){
@@ -686,6 +784,7 @@
 
     var collected = [];
     traceSum.style.display = "none";
+    ganttEl.style.display = "none";
     timeline.innerHTML = '<div class="tl-empty"><span class="dots">执行中</span></div>';
 
     fetch(AGENT + "/chat/stream", {
@@ -698,6 +797,9 @@
         "（Agent 服务未启动？见 tools/serve_ui.py 的提示）");
       return readSSE(res, function(ev){
         if (ev.type === "summary"){ renderSum(ev.data); return; }
+        // span 树是单独一帧：不进时间线（它是树，不是事件），
+        // 单独渲染成甘特条 —— 这就是"快速定位错误节点"那一栏
+        if (ev.type === "spans"){ renderGantt(ev.data); return; }
         collected.push({type: ev.type, data: ev.data, ts: (ev.data || {}).ts});
         renderTimeline(collected);          // 每来一条就重绘 —— 这才是"实时"
       });
@@ -719,6 +821,7 @@
       .then(function(d){
         renderTimeline(d.events || []);
         renderSum(d.summary);
+        renderGantt(d.spans);          // 回放同样能画出甘特条
       })
       .catch(function(e){
         timeline.innerHTML = '<div class="tl-empty">回放失败：' +

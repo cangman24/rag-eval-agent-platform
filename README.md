@@ -91,7 +91,33 @@ start → intent → plan → tool_call → tool_result → verify → answer �
 - 顶部汇总：轮次 / 工具调用 / 事件数 / 错误节点数 / stop_reason / thread_id
 - 轨迹落盘 `data/checkpoints/<tid>.events.jsonl`，可从下拉框**回放历史 thread**
 
-13 类事件定义在 `core/agent.py` 的 `EventType`；离线自证跑 `python demos/demo_agent_trace.py`（14 项自检，不需要 GPU / API Key / langgraph）。
+### 耗时归因：span 树 + 甘特条
+
+事件流告诉你"发生了什么"，但回答不了"慢在哪"。所以每一次运行还会长出一棵 **span 树**
+（`core/observability.py`）：根是整次 run，孩子是各图节点，节点的孩子是它调的工具：
+
+```
+本次 175.2ms · 9 个 span
+run                |############################################|    175.2ms (100.0%)
+  node:intent        |#                                           |      0.0ms (  0.0%)
+  node:tools         |    #################################       |    134.7ms ( 76.9%)
+    tool:kb_search     |    #################################       |    133.5ms ( 76.2%)
+  node:verify        |                                        #   |      0.0ms (  0.0%)
+错误节点：run > node:tools > tool:send_mail（blocked）
+```
+
+面板（轨迹页签顶部）按它渲染甘特条，并给出三件可据此定位的事：
+
+- **瓶颈**：按**自身耗时**（总耗时扣掉直接子节点）排序，否则父节点恒为第一、归因等于没做
+- **错误节点完整路径**：`run > node:tools > tool:send_mail`，`blocked` / `error` / `limit` 都算
+- **占比**：每条 span 占总时长的百分比
+
+span 走**独立通道**（不进事件流）—— 事件是扁平时间线、span 是嵌套树，混在一起两头都不像；
+落盘 `data/checkpoints/<tid>.spans.jsonl`（JSONL 追加写，进程被杀也不丢已跑完的部分）。
+接口：`GET /agent/spans/{tid}`（只取树）/ `GET /agent/trace/{tid}`（事件 + span）。
+
+13 类事件定义在 `core/agent.py` 的 `EventType`，span 结构在 `core/observability.py`；
+离线自证跑 `python demos/demo_agent_trace.py`（23 项自检，不需要 GPU / API Key / langgraph）。
 
 > 口径说明：本项目的 SSE 是**节点级实时**；项目一的 `/chat/stream` 是**分阶段**（检索命中 → 引用 → 答案整段），不是 token 级流式 —— 底层 LLM 客户端未接流式生成。
 
