@@ -23,7 +23,8 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import (Any, Callable, Dict, Iterator, List, Optional, Sequence,
+                    Tuple)
 
 from .mcp import ToolError, ToolNotAllowed, ToolRegistry
 
@@ -149,6 +150,24 @@ class Checkpointer:
     def list_threads(self) -> List[str]:
         raise NotImplementedError
 
+    # ---- 轨迹事件（可选能力）----
+    # ★ 为什么单独一套方法而不是塞进 save()：
+    #     状态是"最后长什么样"，轨迹是"怎么走到这里的"。前者覆盖写，
+    #     后者必须**追加**。把两者混在一个 save 里，续跑时就会把首次
+    #     运行的轨迹冲掉 —— 回放功能直接失效。
+    #   默认实现是 no-op：不是每种存储都需要轨迹（例如纯内存调试）。
+
+    def append_events(self, thread_id: str,
+                      events: Sequence[Dict[str, Any]]) -> None:
+        """追加一批事件到该 thread 的轨迹。"""
+
+    def load_events(self, thread_id: str) -> List[Dict[str, Any]]:
+        """读取该 thread 的完整轨迹（按发生顺序）。"""
+        return []
+
+    def reset_events(self, thread_id: str) -> None:
+        """清空该 thread 的轨迹（新开一次运行时用）。"""
+
 
 
 class InMemoryCheckpointer(Checkpointer):
@@ -156,6 +175,7 @@ class InMemoryCheckpointer(Checkpointer):
 
     def __init__(self) -> None:
         self._store: Dict[str, str] = {}
+        self._events: Dict[str, List[Dict[str, Any]]] = {}
         self._lock = threading.Lock()
         self.saves = 0
 
@@ -177,6 +197,19 @@ class InMemoryCheckpointer(Checkpointer):
         with self._lock:
             return sorted(self._store)
 
+    def append_events(self, thread_id: str,
+                      events: Sequence[Dict[str, Any]]) -> None:
+        with self._lock:
+            self._events.setdefault(thread_id, []).extend(events)
+
+    def load_events(self, thread_id: str) -> List[Dict[str, Any]]:
+        with self._lock:
+            return list(self._events.get(thread_id, []))
+
+    def reset_events(self, thread_id: str) -> None:
+        with self._lock:
+            self._events.pop(thread_id, None)
+
 
 class JsonFileCheckpointer(Checkpointer):
     """落盘实现：每个 thread 一个 JSON 文件。
@@ -194,6 +227,17 @@ class JsonFileCheckpointer(Checkpointer):
     def _file(self, thread_id: str) -> str:
         safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in thread_id)
         return os.path.join(self.path, f"{safe}.json")
+
+    def _events_file(self, thread_id: str) -> str:
+        """轨迹文件：JSON Lines，一行一个事件。
+
+        ★ 为什么是 JSONL 而不是一个 JSON 数组：
+            轨迹是**追加写**的。JSON 数组每次追加都要"读全文→改→写回"，
+            跑到一半崩了还会留下半截非法 JSON；JSONL 天然追加，
+            即便进程被杀，已落盘的那些行依然是合法可解析的。
+        """
+        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in thread_id)
+        return os.path.join(self.path, f"{safe}.events.jsonl")
 
     def save(self, thread_id: str, state: AgentState) -> None:
         target = self._file(thread_id)
@@ -220,6 +264,36 @@ class JsonFileCheckpointer(Checkpointer):
     def list_threads(self) -> List[str]:
         return sorted(os.path.splitext(n)[0] for n in os.listdir(self.path)
                       if n.endswith(".json"))
+
+    def append_events(self, thread_id: str,
+                      events: Sequence[Dict[str, Any]]) -> None:
+        fp = self._events_file(thread_id)
+        with open(fp, "a", encoding="utf-8") as f:
+            for ev in events:
+                f.write(json.dumps(ev, ensure_ascii=False, default=str))
+                f.write("\n")
+
+    def load_events(self, thread_id: str) -> List[Dict[str, Any]]:
+        fp = self._events_file(thread_id)
+        if not os.path.exists(fp):
+            return []
+        out: List[Dict[str, Any]] = []
+        with open(fp, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError:
+                    # 半截行（进程被杀）：跳过而不是让整个回放失败
+                    continue
+        return out
+
+    def reset_events(self, thread_id: str) -> None:
+        fp = self._events_file(thread_id)
+        if os.path.exists(fp):
+            os.remove(fp)
 
 
 # --------------------------------------------------------------------- 结果
@@ -282,6 +356,9 @@ class AgentEngine:
         #   如果超时判定用真实的 time.time()，注入时钟就形同虚设 ——
         #   这个 bug 正是被 test_total_timeout_stops 抓出来的。
         self._clock = clock
+        # 上一次运行的最终状态（run / run_stream 都会设置）
+        # —— 与 LangGraphAgentEngine 保持一致，上层代码无需分支
+        self.last_state: Optional[AgentState] = None
 
     # ------------------------------------------------------------ 白名单
     def route(self, task_type: str) -> List[str]:
@@ -298,12 +375,16 @@ class AgentEngine:
         query: str,
         thread_id: Optional[str] = None,
         resume: bool = False,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> AgentRun:
         tid = thread_id or f"t{int(self._clock() * 1000)}"
         events: List[Dict[str, Any]] = []
 
         def emit(etype: str, **data: Any) -> None:
-            events.append(make_event(etype, **data))
+            ev = make_event(etype, **data)
+            events.append(ev)
+            if on_event is not None:
+                on_event(ev)
 
         # ---------------- 恢复 ----------------
         state: Optional[AgentState] = None
@@ -314,6 +395,7 @@ class AgentEngine:
                      tool_calls=state.tool_calls, finished=state.finished)
                 if state.finished:
                     emit(EventType.DONE, reason="已完成的检查点，无需续跑")
+                    self.last_state = state
                     return AgentRun(state=state, events=events)
 
         if state is None:
@@ -398,7 +480,11 @@ class AgentEngine:
                         "type": "tool_call", "tool": tool_name, "args": args,
                         "ok": True, "result": state.last_observation,
                     })
-                    emit(EventType.TOOL_RESULT, tool=tool_name,
+                    # ★ ok / message 两个字段是为与 LangGraph 版对齐而补的：
+                    #   两版引擎可互换（make_agent_engine），前端面板不该为
+                    #   "现在跑的是哪一版" 写分支 —— 字段不一致就会显示错的
+                    #   状态（例如自实现版没有 ok，面板会显示 ok=false）。
+                    emit(EventType.TOOL_RESULT, tool=tool_name, ok=True,
                          result=state.last_observation)
                 except ToolNotAllowed as exc:
                     state.scratchpad.append({
@@ -406,14 +492,15 @@ class AgentEngine:
                         "ok": False, "error": str(exc), "blocked": True,
                     })
                     emit(EventType.TOOL_ERROR, tool=tool_name, error=str(exc),
-                         blocked=True)
+                         message=str(exc), blocked=True)
                 except ToolError as exc:
                     state.tool_calls += 1
                     state.scratchpad.append({
                         "type": "tool_call", "tool": tool_name, "args": args,
                         "ok": False, "error": str(exc),
                     })
-                    emit(EventType.TOOL_ERROR, tool=tool_name, error=str(exc))
+                    emit(EventType.TOOL_ERROR, tool=tool_name, error=str(exc),
+                         message=str(exc), blocked=False)
                 self._save(state)
 
             # ---------------- 收尾 ----------------
@@ -427,12 +514,14 @@ class AgentEngine:
             self._save(state)
             emit(EventType.DONE, stop_reason=state.stop_reason,
                  rounds=state.rounds, tool_calls=state.tool_calls)
+            self.last_state = state
             return AgentRun(state=state, events=events)
 
         except Exception as exc:  # noqa: BLE001 - 顶层兜底，保证 checkpoint 落盘
             state.stop_reason = "error"
             self._save(state)
             emit(EventType.ERROR, error=f"{type(exc).__name__}: {exc}")
+            self.last_state = state
             return AgentRun(state=state, events=events,
                             error=f"{type(exc).__name__}: {exc}")
 
@@ -445,6 +534,46 @@ class AgentEngine:
                 # 存盘失败不让整轮 Agent 崩掉；代价是这一轮的检查点丢失，
                 # resume 时会退回上一个可用检查点（或初始状态）重跑。
                 pass
+
+    def run_stream(
+        self,
+        query: str,
+        thread_id: Optional[str] = None,
+        resume: bool = False,
+    ) -> Iterator[Dict[str, Any]]:
+        """流式执行 —— 与 LangGraphAgentEngine.run_stream 同签名、同语义。
+
+        ★ 必须如实说明的差异：
+            这一版是**批量吐出**（跑完再 yield），不是节点级实时。
+            因为自实现的 while 循环没有"每步暂停"的结构，要真增量就得把
+            run() 整个改成生成器 —— 收益（回退路径更好看）不值得这个风险。
+            LangGraph 版（主路径，真机默认）是**真增量**：每个图节点执行完
+            就推一批事件。
+
+            对调用方的影响只有"事件到达的时机"，事件内容与顺序两版一致，
+            所以上层代码（API / 面板）不需要分支。前端想知道当前用的是哪一版，
+            读 `GET /agent/health` 的 `engine` 字段。
+        """
+        out: List[Dict[str, Any]] = []
+        cp = self.checkpointer
+        if cp is not None and not resume and thread_id:
+            cp.reset_events(thread_id)
+        # thread_id 由 run() 内部生成时才需要回捞 —— start 事件里带
+        holder: Dict[str, Any] = {"tid": thread_id}
+
+        def sink(ev: Dict[str, Any]) -> None:
+            if holder["tid"] is None:
+                holder["tid"] = (ev.get("data") or {}).get("thread_id")
+            out.append(ev)
+            if cp is not None and holder["tid"]:
+                try:
+                    cp.append_events(holder["tid"], [ev])
+                except OSError:  # pragma: no cover - 旁路失败不影响主流程
+                    pass
+
+        self.run(query, thread_id=thread_id, resume=resume, on_event=sink)
+        for ev in out:
+            yield ev
 
     def resume(self, thread_id: str) -> AgentRun:
         """从检查点续跑。已完成节点不会重复执行。"""

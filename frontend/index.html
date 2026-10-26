@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>领域知识问答</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --text:#15181d; --muted:#6b7280;
+    --border:#e4e7ec; --accent:#2563eb; --accent-soft:#eff4ff;
+    --warn-bg:#fff8e6; --warn-border:#f2d08a; --warn-text:#8a6100;
+    --ok:#16a34a; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.04);
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0e1116; --card:#161a21; --text:#e6e9ee; --muted:#98a2b3;
+      --border:#252b36; --accent:#6ea8fe; --accent-soft:#18243a;
+      --warn-bg:#2a2213; --warn-border:#5c4a1d; --warn-text:#e0b95c;
+      --ok:#4ade80; --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.25);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;
+  }
+  .app{display:flex;flex-direction:column;height:100%}
+
+  header{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 20px;border-bottom:1px solid var(--border);background:var(--card)
+  }
+  header h1{font-size:15px;font-weight:650;margin:0;letter-spacing:.2px}
+  header .sub{font-size:12px;color:var(--muted)}
+  .status{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:#c9ced6}
+  .dot.ok{background:var(--ok)}
+  .dot.bad{background:#ef4444}
+  .dot.wait{background:#f59e0b;animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+
+  main{flex:1;overflow-y:auto;padding:24px 20px 8px}
+  .wrap{max-width:800px;margin:0 auto}
+
+  /* 空状态 */
+  .empty{text-align:center;padding:48px 0 24px}
+  .empty h2{font-size:20px;font-weight:650;margin:0 0 6px}
+  .empty p{color:var(--muted);margin:0 0 26px;font-size:13.5px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .chip{
+    padding:7px 13px;border:1px solid var(--border);background:var(--card);
+    border-radius:999px;font-size:13px;color:var(--text);cursor:pointer;
+    transition:.15s;box-shadow:var(--shadow)
+  }
+  .chip:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+
+  /* 问答块 */
+  .qa{margin-bottom:26px}
+  .q{display:flex;justify-content:flex-end;margin-bottom:10px}
+  .q span{
+    background:var(--accent);color:#fff;padding:9px 14px;border-radius:14px 14px 4px 14px;
+    max-width:78%;font-size:14px;word-break:break-word
+  }
+  .a-card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:16px 18px;box-shadow:var(--shadow)
+  }
+  .meta{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    font-size:12px;color:var(--muted);margin-bottom:10px;min-height:16px
+  }
+  .meta .pill{background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:11.5px}
+  .dots::after{content:"";animation:dots 1.2s steps(4,end) infinite}
+  @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+
+  .answer{font-size:14.5px;word-break:break-word}
+  .answer p{margin:0 0 10px}
+  .answer p:last-child{margin-bottom:0}
+  .answer ul{margin:6px 0 10px;padding-left:20px}
+  .answer li{margin:3px 0}
+  .answer strong{font-weight:650}
+  .answer code{font-family:var(--mono);font-size:12.5px;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+  .cite{
+    display:inline-block;min-width:15px;text-align:center;
+    font-size:11px;font-family:var(--mono);line-height:15px;
+    background:var(--accent-soft);color:var(--accent);
+    border-radius:4px;padding:0 3px;margin:0 1px;cursor:pointer;
+    vertical-align:baseline;transition:.15s
+  }
+  .cite:hover{background:var(--accent);color:#fff}
+
+  /* 拒答 */
+  .refused .a-card{background:var(--warn-bg);border-color:var(--warn-border)}
+  .refused .answer{color:var(--warn-text)}
+  .badge-refuse{background:var(--warn-bg);color:var(--warn-text);border:1px solid var(--warn-border)}
+
+  /* 引用 */
+  .cites{margin-top:14px;border-top:1px dashed var(--border);padding-top:12px}
+  .cites-title{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .cite-item{
+    border:1px solid var(--border);border-radius:9px;padding:8px 11px;margin-bottom:7px;
+    cursor:pointer;transition:.15s;background:var(--bg)
+  }
+  .cite-item:hover{border-color:var(--accent)}
+  .cite-item.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .cite-head{display:flex;gap:8px;align-items:baseline}
+  .cite-n{
+    font-family:var(--mono);font-size:11px;color:var(--accent);
+    background:var(--accent-soft);border-radius:4px;padding:1px 5px;flex:none
+  }
+  .cite-id{font-family:var(--mono);font-size:12px;color:var(--text);word-break:break-all}
+  .cite-snip{
+    font-size:12.5px;color:var(--muted);margin-top:5px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+  }
+  .cite-item.open .cite-snip{-webkit-line-clamp:unset;display:block}
+
+  .err{
+    background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text);
+    padding:12px 14px;border-radius:10px;font-size:13.5px;margin-bottom:20px
+  }
+  .err code{font-family:var(--mono);font-size:12px}
+
+  /* 输入区 */
+  footer{padding:12px 20px 20px;background:linear-gradient(to top,var(--bg) 60%,transparent)}
+  .composer{max-width:800px;margin:0 auto}
+  .box{
+    display:flex;gap:10px;align-items:flex-end;background:var(--card);
+    border:1px solid var(--border);border-radius:14px;padding:10px 10px 10px 14px;
+    box-shadow:var(--shadow);transition:.15s
+  }
+  .box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  textarea{
+    flex:1;border:0;outline:0;resize:none;background:transparent;color:var(--text);
+    font:inherit;font-size:14.5px;line-height:1.6;max-height:160px;padding:2px 0
+  }
+  textarea::placeholder{color:var(--muted)}
+  button.send{
+    border:0;background:var(--accent);color:#fff;border-radius:9px;
+    padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;flex:none;transition:.15s
+  }
+  button.send:disabled{opacity:.5;cursor:not-allowed}
+  button.send:not(:disabled):hover{filter:brightness(1.06)}
+  .opts{
+    display:flex;gap:16px;align-items:center;margin-top:9px;
+    font-size:12px;color:var(--muted);padding-left:4px
+  }
+  .opts label{display:flex;gap:6px;align-items:center;cursor:pointer;user-select:none}
+  .opts input{accent-color:var(--accent);margin:0}
+  .hint{margin-left:auto;font-family:var(--mono);font-size:11px}
+
+  /* ---- 视图切换 ---- */
+  .tabs{display:flex;gap:4px;margin-left:14px}
+  .tab{
+    border:1px solid var(--border);background:transparent;color:var(--muted);
+    padding:4px 12px;border-radius:8px;font-size:12.5px;cursor:pointer;transition:.15s
+  }
+  .tab.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+
+  /* ---- 轨迹面板 ---- */
+  .th-head{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px
+  }
+  .th-head h2{font-size:16px;font-weight:650;margin:0}
+  .th-sub{font-size:12px;color:var(--muted)}
+  .th-actions{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
+  .th-actions select{
+    background:var(--card);color:var(--text);border:1px solid var(--border);
+    border-radius:8px;padding:4px 8px;font-size:12px;max-width:260px
+  }
+  .th-actions label{display:flex;gap:5px;align-items:center;cursor:pointer;user-select:none}
+  .th-actions input{accent-color:var(--accent);margin:0}
+
+  .sum-bar{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:10px 13px;margin-bottom:14px;font-size:12px;box-shadow:var(--shadow)
+  }
+  .sum-bar .pill{background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:11.5px}
+  .sum-bar .pill.bad{background:#fee2e2;color:#b91c1c}
+  .sum-bar .tid{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-left:auto}
+
+  .timeline{display:flex;flex-direction:column;gap:6px}
+  .tl-item{
+    border:1px solid var(--border);border-left:3px solid var(--border);
+    border-radius:9px;background:var(--card);padding:8px 11px;cursor:pointer;transition:.15s
+  }
+  .tl-item:hover{border-color:var(--accent)}
+  .tl-row{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+  .tl-i{font-family:var(--mono);font-size:11px;color:var(--muted);width:20px;flex:none}
+  .tl-type{
+    font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:5px;
+    background:var(--accent-soft);color:var(--accent);flex:none
+  }
+  .tl-desc{font-size:13px;flex:1;min-width:120px;word-break:break-word}
+  .tl-t{font-family:var(--mono);font-size:11px;color:var(--muted);flex:none}
+  .tl-json{
+    display:none;margin:8px 0 2px;padding:9px 11px;border-radius:7px;
+    background:var(--bg);border:1px solid var(--border);
+    font-family:var(--mono);font-size:11.5px;line-height:1.55;
+    white-space:pre-wrap;word-break:break-all;color:var(--text);max-height:320px;overflow:auto
+  }
+  .tl-item.open .tl-json{display:block}
+  .tl-item.t-blue{border-left-color:var(--accent)}
+  .tl-item.t-green{border-left-color:var(--ok)}
+  .tl-item.t-green .tl-type{background:#e7f6ec;color:#15803d}
+  .tl-item.t-amber{border-left-color:#d99a1c}
+  .tl-item.t-amber .tl-type{background:var(--warn-bg);color:var(--warn-text)}
+  .tl-item.t-red{border-left-color:#ef4444;background:var(--warn-bg)}
+  .tl-item.t-red .tl-type{background:#fee2e2;color:#b91c1c}
+  .tl-item.t-gray{border-left-color:#9ca3af}
+  .tl-item.t-gray .tl-type{background:var(--bg);color:var(--muted)}
+  .timeline.only-err .tl-item:not(.t-red){display:none}
+  .tl-empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>领域知识问答</h1>
+      <div class="sub" id="sub">82 篇作业规范 · 302 个片段 · 答案带出处</div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" id="tabChat">问答</button>
+      <button class="tab" id="tabTrace">Agent 轨迹</button>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">检测中…</span></div>
+  </header>
+
+  <main id="main">
+    <div class="wrap" id="wrap">
+      <div class="empty" id="empty">
+        <h2>问点什么吧</h2>
+        <p>答案只来自知识库，每条结论都带 [n] 出处，可点开看原文片段</p>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <div class="wrap" id="traceWrap" style="display:none">
+      <div class="th-head">
+        <div>
+          <h2>Agent 推理轨迹</h2>
+          <div class="th-sub">节点粒度实时推送 · 错误 / 熔断节点标红，点开看原始 payload</div>
+        </div>
+        <div class="th-actions">
+          <select id="threadSel"><option value="">回放历史 thread…</option></select>
+          <label><input type="checkbox" id="onlyErr"> 只看错误</label>
+        </div>
+      </div>
+      <div class="sum-bar" id="traceSum" style="display:none"></div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="composer">
+      <div class="box">
+        <textarea id="q" rows="1" placeholder="输入问题，Enter 发送，Shift+Enter 换行"></textarea>
+        <button class="send" id="send">发送</button>
+      </div>
+      <div class="opts">
+        <label><input type="checkbox" id="retrieveOnly"> 只看检索（不生成，省钱秒回）</label>
+        <span class="hint" id="hint">SSE 分阶段流式</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var API = "/api";
+  var main = document.getElementById("main");
+  var wrap = document.getElementById("wrap");
+  var empty = document.getElementById("empty");
+  var ta = document.getElementById("q");
+  var sendBtn = document.getElementById("send");
+  var dot = document.getElementById("dot");
+  var statusText = document.getElementById("statusText");
+  var retrieveOnly = document.getElementById("retrieveOnly");
+  var hint = document.getElementById("hint");
+  var ctrl = null;
+
+  var SAMPLES = [
+    "倒伏面积评估的精度要求是什么？",
+    "高光谱成像仪的作业参数要求",
+    "病虫害巡检的作业流程是什么？分几步？",
+    "公司年假的请假流程怎么走？"
+  ];
+
+  /* ---------------- 工具函数 ---------------- */
+  function esc(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
+  }
+
+  // 轻量 markdown：段落 / 无序列表 / 加粗 / 行内代码 / [n] 角标
+  function render(text){
+    var safe = esc(text);
+    var blocks = safe.split(/\n{2,}/);
+    var out = [];
+    blocks.forEach(function(block){
+      var lines = block.split("\n");
+      var isList = lines.length && lines.every(function(l){ return /^\s*[-*]\s+/.test(l) || l.trim()===""; });
+      if (isList){
+        var items = lines.filter(function(l){ return l.trim()!==""; })
+          .map(function(l){ return "<li>" + inline(l.replace(/^\s*[-*]\s+/,"")) + "</li>"; });
+        if (items.length) out.push("<ul>" + items.join("") + "</ul>");
+      } else {
+        var ps = block.split("\n").filter(function(l){ return l.trim()!==""; });
+        if (ps.length) out.push("<p>" + ps.map(inline).join("<br>") + "</p>");
+      }
+    });
+    return out.join("");
+  }
+  function inline(s){
+    return s
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\[(\d{1,2})\]/g, '<span class="cite" data-i="$1">$1</span>');
+  }
+  function scrollBottom(){
+    main.scrollTop = main.scrollHeight;
+  }
+  function setStatus(kind, text){
+    dot.className = "dot " + kind;
+    statusText.textContent = text;
+  }
+
+  /* ---------------- 健康检查 ---------------- */
+  function health(){
+    fetch(API + "/health", {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        setStatus("ok", "就绪 · " + (d.index_size || 0) + " 片段");
+        var bits = [];
+        if (d.index_size) bits.push(d.index_size + " 个片段");
+        if (d.llm_configured) bits.push("LLM 已接");
+        document.getElementById("sub").textContent =
+          "82 篇作业规范 · " + bits.join(" · ") + " · 答案带出处";
+      })
+      .catch(function(){
+        setStatus("bad", "后端未连接");
+        var e = document.createElement("div");
+        e.className = "err";
+        e.innerHTML = "连不上后端（<code>" + esc(API) + "/health</code>）。<br>" +
+          "先在 <code>_starter</code> 里启动服务：<br>" +
+          "<code>python -m rag1_knowledge_qa.server</code>（需 conda agent_rag 环境）";
+        wrap.appendChild(e);
+      });
+  }
+
+  /* ---------------- 示例问题 ---------------- */
+  var chips = document.getElementById("chips");
+  SAMPLES.forEach(function(s){
+    var b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = s;
+    b.onclick = function(){ ask(s); };
+    chips.appendChild(b);
+  });
+
+  /* ---------------- 提问 ---------------- */
+  function ask(query){
+    query = (query || "").trim();
+    if (!query) return;
+    if (empty && empty.parentNode) empty.parentNode.removeChild(empty);
+
+    var qa = document.createElement("div");
+    qa.className = "qa";
+    qa.innerHTML =
+      '<div class="q"><span>' + esc(query) + '</span></div>' +
+      '<div class="a-card">' +
+        '<div class="meta"><span class="dots">检索中</span></div>' +
+        '<div class="answer"></div>' +
+        '<div class="cites" style="display:none"></div>' +
+      '</div>';
+    wrap.appendChild(qa);
+    scrollBottom();
+
+    var meta = qa.querySelector(".meta");
+    var ansEl = qa.querySelector(".answer");
+    var citesEl = qa.querySelector(".cites");
+    var card = qa.querySelector(".a-card");
+
+    var t0 = performance.now();
+    var citations = [];
+    var answerText = "";
+    var refused = false;
+    var gotRetrieval = false;
+
+    ta.value = "";
+    ta.style.height = "auto";
+    sendBtn.disabled = true;
+    if (ctrl) ctrl.abort();
+    ctrl = new AbortController();
+
+    if (retrieveOnly.checked){
+      hint.textContent = "调试模式：只检索";
+      fetch(API + "/debug/retrieve?q=" + encodeURIComponent(query) + "&top_k=5")
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var ms = Math.round(performance.now() - t0);
+          meta.innerHTML = '<span class="pill">' + d.count + " 条命中</span>" +
+            '<span class="pill">' + ms + " ms</span><span>只检索，未调用模型</span>";
+          var html = (d.hits || []).map(function(h, i){
+            return '<div class="cite-item"><div class="cite-head">' +
+              '<span class="cite-n">' + (i+1) + "</span>" +
+              '<span class="cite-id">' + esc(h.chunk_id) + "</span></div>" +
+              '<div class="cite-snip">' + esc(h.text || "") + "</div></div>";
+          }).join("");
+          citesEl.style.display = "";
+          citesEl.innerHTML = '<div class="cites-title">检索命中（按精排分数降序）</div>' + html;
+          bindCites(citesEl);
+          scrollBottom();
+        })
+        .catch(function(e){ fail(meta, ansEl, e); })
+        .finally(function(){ sendBtn.disabled = false; hint.textContent = "SSE 分阶段流式"; });
+      return;
+    }
+
+    fetch(API + "/chat/stream", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query: query}),
+      signal: ctrl.signal
+    }).then(function(res){
+      if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
+      var reader = res.body.getReader();
+      var dec = new TextDecoder();
+      var buf = "";
+      function pump(){
+        return reader.read().then(function(r){
+          if (r.done) return finish();
+          buf += dec.decode(r.value, {stream:true});
+          var i;
+          while ((i = buf.indexOf("\n\n")) >= 0){
+            var frame = buf.slice(0, i);
+            buf = buf.slice(i + 2);
+            handleFrame(frame);
+          }
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function(e){
+      if (e && e.name === "AbortError") return;
+      fail(meta, ansEl, e);
+      sendBtn.disabled = false;
+    });
+
+    function handleFrame(frame){
+      var ev = "message", dataLines = [];
+      frame.split("\n").forEach(function(line){
+        if (!line || line.charAt(0) === ":") return;
+        var idx = line.indexOf(":");
+        var field = idx < 0 ? line : line.slice(0, idx);
+        var val = idx < 0 ? "" : line.slice(idx + 1);
+        if (val.charAt(0) === " ") val = val.slice(1);
+        if (field === "event") ev = val;
+        else if (field === "data") dataLines.push(val);
+      });
+      if (!dataLines.length) return;
+      var d;
+      try { d = JSON.parse(dataLines.join("\n")); } catch(_) { return; }
+
+      if (ev === "start"){
+        meta.innerHTML = '<span class="dots">检索中</span>';
+      } else if (ev === "retrieval"){
+        gotRetrieval = true;
+        meta.innerHTML = '<span class="pill">命中 ' + (d.count|0) + " 条</span>" +
+          '<span class="pill">top ' + Number(d.top_score || 0).toFixed(2) + "</span>" +
+          '<span class="dots">生成中</span>';
+        scrollBottom();
+      } else if (ev === "citation"){
+        citations.push(d);
+      } else if (ev === "answer"){
+        answerText = d.text || "";
+        ansEl.innerHTML = render(answerText);
+        var ms = Math.round(performance.now() - t0);
+        meta.innerHTML = '<span class="pill">' + (gotRetrieval ? citations.length + " 条引用 · " : "") +
+          ms + " ms</span>" + (d.citations ? '<span class="pill">' + d.citations.length + " 个出处</span>" : "");
+        renderCites();
+        bindCites(citesEl);
+        // 角标只在本条问答内定位（多轮对话时不会跳到更早的卡片）
+        ansEl.querySelectorAll(".cite").forEach(function(el){
+          el.onclick = function(){
+            var target = qa.querySelector('.cite-item[data-i="' + el.dataset.i + '"]');
+            if (!target) return;
+            target.classList.add("open", "active");
+            target.scrollIntoView({behavior:"smooth", block:"center"});
+            setTimeout(function(){ target.classList.remove("active"); }, 1600);
+          };
+        });
+        scrollBottom();
+      } else if (ev === "refusal"){
+        refused = true;
+        qa.classList.add("refused");
+        ansEl.innerHTML = render(d.text || "知识库中未找到相关内容。");
+        meta.innerHTML = '<span class="pill badge-refuse">已拒答</span><span>知识库中没有可支撑该问题的内容</span>';
+        scrollBottom();
+      } else if (ev === "error"){
+        fail(meta, ansEl, new Error(d.error || "服务端错误"));
+      } else if (ev === "done"){
+        if (d.latency_ms){
+          var p = document.createElement("span");
+          p.className = "muted";
+          p.textContent = "服务端 " + d.latency_ms + " ms";
+          meta.appendChild(p);
+        }
+      }
+    }
+
+    function renderCites(){
+      if (!citations.length) return;
+      citesEl.style.display = "";
+      citesEl.innerHTML = '<div class="cites-title">出处（点击展开原文片段）</div>' +
+        citations.map(function(c){
+          return '<div class="cite-item" data-i="' + c.index + '">' +
+            '<div class="cite-head">' +
+              '<span class="cite-n">' + c.index + "</span>" +
+              '<span class="cite-id">' + esc(c.chunk_id) + "</span></div>" +
+            '<div class="cite-snip">' + esc(c.snippet || "") + "</div></div>";
+        }).join("");
+    }
+
+    function finish(){
+      sendBtn.disabled = false;
+      if (!answerText && !refused && !citations.length){
+        meta.innerHTML = '<span class="pill badge-refuse">无响应</span><span>流已结束但没收到内容</span>';
+      }
+    }
+  }
+
+  function bindCites(root){
+    root.querySelectorAll(".cite-item").forEach(function(it){
+      it.onclick = function(){ it.classList.toggle("open"); };
+    });
+  }
+  function fail(meta, ansEl, e){
+    meta.innerHTML = '<span class="pill badge-refuse">请求失败</span>';
+    ansEl.innerHTML = '<p style="color:var(--muted)">' + esc(e && e.message ? e.message : String(e)) + "</p>";
+  }
+
+  /* ---------------- Agent 轨迹 ---------------- */
+  var AGENT = "/agent";
+  var timeline = document.getElementById("timeline");
+  var traceSum = document.getElementById("traceSum");
+  var threadSel = document.getElementById("threadSel");
+  var onlyErr = document.getElementById("onlyErr");
+  var mode = "chat";
+  var agentCtrl = null;
+
+  // ★ 事件类型 -> 颜色。红色档是"定位错误节点"的入口：
+  //   tool_error（工具越权/异常）、limit（熔断）、error（图执行失败）
+  var TYPE_CLASS = {
+    start:"t-gray", intent:"t-blue", plan:"t-blue", resume:"t-blue",
+    tool_call:"t-blue", tool_result:"t-green", answer:"t-green",
+    verify:"t-amber", refusal:"t-amber",
+    tool_error:"t-red", limit:"t-red", error:"t-red", done:"t-gray"
+  };
+
+  function describe(ev){
+    var t = ev.type, d = ev.data || {};
+    function args(a){
+      return Object.keys(a || {}).map(function(k){
+        var v = a[k];
+        return k + "=" + (typeof v === "string" ? v : JSON.stringify(v));
+      }).join(", ");
+    }
+    if (t === "start") return (d.query || "") + " · engine=" + (d.engine || "");
+    if (t === "intent") return "意图=" + (d.task_type || "") +
+      " · 白名单=[" + (d.allowed_tools || []).join(", ") + "]";
+    if (t === "plan") return (d.steps || []).join(" → ");
+    if (t === "tool_call") return (d.tool || "") + "(" + args(d.args) + ")";
+    if (t === "tool_result") return (d.tool || "") +
+      " · " + (d.ok === false ? "失败" : "成功");
+    if (t === "tool_error") return (d.tool || "") +
+      (d.blocked ? " · 被白名单拦截：" : " · 执行异常：") +
+      (d.message || d.error || "");
+    if (t === "verify") return "ok=" + !!d.ok + " · " + (d.reason || "");
+    if (t === "answer") return (d.text || "").slice(0, 80);
+    if (t === "limit") return "熔断：" + (d.reason || "") +
+      (d.rounds != null ? " · rounds=" + d.rounds : "");
+    if (t === "resume") return "从检查点续跑 · rounds=" + (d.rounds || 0);
+    if (t === "done") return "结束：" + (d.reason || "") +
+      " · rounds=" + (d.rounds || 0) + " · tool_calls=" + (d.tool_calls || 0);
+    if (t === "summary") return "汇总";
+    return JSON.stringify(d).slice(0, 100);
+  }
+
+  function renderTimeline(events){
+    if (!events || !events.length){
+      timeline.innerHTML = '<div class="tl-empty">还没有轨迹。在下方输入一个任务试试，' +
+        '或从右上角选择历史 thread 回放。</div>';
+      return;
+    }
+    var t0 = events[0].ts || 0;
+    timeline.innerHTML = "";
+    events.forEach(function(ev, i){
+      var el = document.createElement("div");
+      el.className = "tl-item " + (TYPE_CLASS[ev.type] || "t-gray");
+      el.innerHTML =
+        '<div class="tl-row">' +
+          '<span class="tl-i">' + (i + 1) + '</span>' +
+          '<span class="tl-type">' + esc(ev.type) + '</span>' +
+          '<span class="tl-desc">' + esc(describe(ev)) + '</span>' +
+          '<span class="tl-t">+' + Math.round(((ev.ts || 0) - t0) * 1000) + 'ms</span>' +
+        '</div>' +
+        '<pre class="tl-json">' + esc(JSON.stringify(ev.data || {}, null, 2)) + '</pre>';
+      el.onclick = function(){ el.classList.toggle("open"); };
+      timeline.appendChild(el);
+    });
+    scrollBottom();
+  }
+
+  function renderSum(sum){
+    if (!sum){ traceSum.style.display = "none"; return; }
+    traceSum.style.display = "";
+    var ms = sum.duration_ms != null ? sum.duration_ms
+           : (sum.latency_ms != null ? sum.latency_ms : 0);
+    var html = '<span class="pill">事件 ' + (sum.event_count || 0) + '</span>' +
+      '<span class="pill">轮次 ' + (sum.rounds || 0) + '</span>' +
+      '<span class="pill">工具调用 ' + (sum.tool_calls || 0) + '</span>' +
+      '<span class="pill">' + ms + ' ms</span>';
+    html += sum.error_count
+      ? '<span class="pill bad">错误节点 ' + sum.error_count + "（" +
+        (sum.error_types || []).join(" / ") + "）</span>"
+      : '<span class="pill">无错误节点</span>';
+    if (sum.stop_reason) html += '<span class="pill">stop=' + esc(sum.stop_reason) + '</span>';
+    html += '<span class="tid">' + esc(sum.thread_id || "") + '</span>';
+    traceSum.innerHTML = html;
+  }
+
+  function parseFrame(frame){
+    var type = "message", dataLines = [];
+    frame.split("\n").forEach(function(line){
+      if (!line || line.charAt(0) === ":") return;
+      var idx = line.indexOf(":");
+      var field = idx < 0 ? line : line.slice(0, idx);
+      var val = idx < 0 ? "" : line.slice(idx + 1);
+      if (val.charAt(0) === " ") val = val.slice(1);
+      if (field === "event") type = val;
+      else if (field === "data") dataLines.push(val);
+    });
+    if (!dataLines.length) return null;
+    var data;
+    try { data = JSON.parse(dataLines.join("\n")); }
+    catch (e) { data = {raw: dataLines.join("\n")}; }
+    return {type: type, data: data};
+  }
+
+  function readSSE(res, onEvent){
+    var reader = res.body.getReader();
+    var dec = new TextDecoder();
+    var buf = "";
+    function pump(){
+      return reader.read().then(function(r){
+        if (r.done) return;
+        buf += dec.decode(r.value, {stream: true});
+        var i;
+        while ((i = buf.indexOf("\n\n")) >= 0){
+          var ev = parseFrame(buf.slice(0, i));
+          buf = buf.slice(i + 2);
+          if (ev) onEvent(ev);
+        }
+        return pump();
+      });
+    }
+    return pump();
+  }
+
+  function runAgent(query){
+    query = (query || "").trim();
+    if (!query) return;
+    ta.value = "";
+    ta.style.height = "auto";
+    sendBtn.disabled = true;
+    if (agentCtrl) agentCtrl.abort();
+    agentCtrl = new AbortController();
+
+    var collected = [];
+    traceSum.style.display = "none";
+    timeline.innerHTML = '<div class="tl-empty"><span class="dots">执行中</span></div>';
+
+    fetch(AGENT + "/chat/stream", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query: query}),
+      signal: agentCtrl.signal
+    }).then(function(res){
+      if (!res.ok || !res.body) throw new Error("HTTP " + res.status +
+        "（Agent 服务未启动？见 tools/serve_ui.py 的提示）");
+      return readSSE(res, function(ev){
+        if (ev.type === "summary"){ renderSum(ev.data); return; }
+        collected.push({type: ev.type, data: ev.data, ts: (ev.data || {}).ts});
+        renderTimeline(collected);          // 每来一条就重绘 —— 这才是"实时"
+      });
+    }).then(function(){
+      loadThreads();
+    }).catch(function(e){
+      if (e && e.name === "AbortError") return;
+      timeline.innerHTML = '<div class="tl-empty">执行失败：' +
+        esc(e && e.message ? e.message : String(e)) + '</div>';
+    }).finally(function(){ sendBtn.disabled = false; });
+  }
+
+  function replay(tid){
+    fetch(AGENT + "/trace/" + encodeURIComponent(tid))
+      .then(function(r){
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(d){
+        renderTimeline(d.events || []);
+        renderSum(d.summary);
+      })
+      .catch(function(e){
+        timeline.innerHTML = '<div class="tl-empty">回放失败：' +
+          esc(e && e.message ? e.message : String(e)) + '</div>';
+      });
+  }
+
+  function loadThreads(){
+    fetch(AGENT + "/threads?limit=30")
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d) return;
+        var html = '<option value="">回放历史 thread…</option>';
+        (d.threads || []).forEach(function(t){
+          // 没有轨迹的检查点（本面板上线之前跑的）不列 —— 选了也是空白时间线
+          if (!t.has_events) return;
+          html += '<option value="' + esc(t.thread_id) + '">' +
+            esc(t.thread_id) + " · " + (t.event_count || 0) + " 事件 · " +
+            esc((t.query || "").slice(0, 16)) + "</option>";
+        });
+        threadSel.innerHTML = html;
+      })
+      .catch(function(){});
+  }
+
+  threadSel.onchange = function(){ if (threadSel.value) replay(threadSel.value); };
+  onlyErr.onchange = function(){ timeline.classList.toggle("only-err", onlyErr.checked); };
+
+  /* ---------------- 视图切换 ---------------- */
+  var tabChat = document.getElementById("tabChat");
+  var tabTrace = document.getElementById("tabTrace");
+  var traceWrap = document.getElementById("traceWrap");
+  var optRetrieve = document.querySelector(".opts label");
+  function setMode(m){
+    mode = m;
+    tabChat.classList.toggle("on", m === "chat");
+    tabTrace.classList.toggle("on", m === "trace");
+    wrap.style.display = m === "chat" ? "" : "none";
+    traceWrap.style.display = m === "trace" ? "" : "none";
+    if (optRetrieve) optRetrieve.style.display = m === "chat" ? "" : "none";
+    hint.textContent = m === "chat" ? "SSE 分阶段流式" : "SSE 节点级轨迹";
+    ta.placeholder = m === "chat"
+      ? "输入问题，Enter 发送，Shift+Enter 换行"
+      : "输入任务，观察 Agent 的 plan / 工具调用 / 校验轨迹";
+    scrollBottom();
+  }
+  tabChat.onclick = function(){ setMode("chat"); };
+  tabTrace.onclick = function(){ setMode("trace"); };
+
+  /* ---------------- 输入交互 ---------------- */
+  ta.addEventListener("input", function(){
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
+  });
+  ta.addEventListener("keydown", function(e){
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing){
+      e.preventDefault();
+      if (mode === "trace") runAgent(ta.value); else ask(ta.value);
+    }
+  });
+  sendBtn.onclick = function(){
+    if (mode === "trace") runAgent(ta.value); else ask(ta.value);
+  };
+
+  health();
+  loadThreads();
+  ta.focus();
+})();
+</script>
+</body>
+</html>

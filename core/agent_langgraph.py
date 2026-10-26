@@ -32,7 +32,8 @@ from __future__ import annotations
 
 import importlib
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypedDict
+from typing import (Any, Callable, Dict, Iterator, List, Optional, Sequence,
+                    Tuple, TypedDict)
 
 from .agent import (
     DEFAULT_MAX_ROUNDS, DEFAULT_MAX_TOOL_CALLS, DEFAULT_TOTAL_TIMEOUT_S,
@@ -171,6 +172,12 @@ class LangGraphAgentEngine:
         self._intent_calls = 0
 
         self._events: List[Dict[str, Any]] = []
+        # 待推送队列：`_emit` 只入队，`_drain` 在每个图节点后出队。
+        # 这样同一份执行体既能"跑完一次性返回"（run），
+        # 又能"边跑边推"（run_stream）。
+        self._pending: List[Dict[str, Any]] = []
+        # 上一次运行的最终状态（run / run_stream 都会设置）
+        self.last_state: Optional[AgentState] = None
         self._graph = self._build_graph()
 
     # ------------------------------------------------------------ 白名单
@@ -180,7 +187,9 @@ class LangGraphAgentEngine:
 
     # ------------------------------------------------------------ 事件
     def _emit(self, etype: str, **data: Any) -> None:
-        self._events.append(make_event(etype, **data))
+        ev = make_event(etype, **data)
+        self._events.append(ev)
+        self._pending.append(ev)
 
     def _limit_reached(self, state: AgentState) -> Optional[str]:
         """三道熔断 + 超时。返回停止原因（None 表示还能继续）。"""
@@ -414,16 +423,62 @@ class LangGraphAgentEngine:
         return s
 
     # ------------------------------------------------------------ 主流程
-    def run(
+    def _drain(self) -> List[Dict[str, Any]]:
+        """取出并清空「待推送」事件队列。
+
+        ★ 这是"实时"的关键：`_emit` 只负责入队，由 `_run_steps` 在
+          **每个图节点之后**调用本方法把事件交给调用方。
+          旧实现把事件一直攒到 run() 结束才随 AgentRun 一次性返回 ——
+          那种形态只能"跑完回放"，前端画不出实时轨迹。
+        """
+        out = self._pending
+        self._pending = []
+        return out
+
+    def _flush(self, thread_id: Optional[str] = None
+               ) -> Iterator[Dict[str, Any]]:
+        """出队 + 顺手落盘轨迹，再逐条交给调用方。
+
+        ★ 为什么在这里落盘而不是等 run 结束：
+            轨迹是**旁路**数据，它的丢失不该影响主流程，但也正因为是旁路，
+            才要趁事件还新鲜时写下去 —— 否则进程中途崩掉，
+            "定位错误节点"能看到的就只剩最后一次成功运行的轨迹了。
+            落盘失败只吞掉 OSError（磁盘满/权限），绝不打断推理。
+        """
+        batch = self._drain()
+        if batch and thread_id and self.checkpointer is not None:
+            try:
+                self.checkpointer.append_events(thread_id, batch)
+            except OSError:  # pragma: no cover - 旁路失败不影响主流程
+                pass
+        for ev in batch:
+            yield ev
+
+    def _run_steps(
         self,
         query: str,
         thread_id: Optional[str] = None,
         resume: bool = False,
-    ) -> AgentRun:
+    ) -> Iterator[Dict[str, Any]]:
+        """执行一次运行并**逐事件** yield。
+
+        ★ `run()` 与 `run_stream()` 共用这一个执行体 —— 这是二者语义必然
+          一致的唯一保证。若各写一遍实现，迟早会出现「流式跑出来的轨迹
+          和同步跑不一样」这种最难查的 bug。
+        """
         tid = thread_id or f"t{int(self._clock() * 1000)}"
         self._events = []
+        self._pending = []
+        self.last_state = None
+        # 新开一次运行：清空旧轨迹。续跑不删 —— 回放时要能看到
+        # 「首次运行 + 续跑」的完整轨迹，删掉就只剩后半段了。
+        if not resume and self.checkpointer is not None:
+            self.checkpointer.reset_events(tid)
+
         self._emit(EventType.START, query=query, thread_id=tid,
                    engine="langgraph")
+        for ev in self._flush(tid):
+            yield ev
 
         init: Dict[str, Any] = {
             "query": query,
@@ -453,31 +508,68 @@ class LangGraphAgentEngine:
                 init.update(saved.to_dict())
                 self._emit(EventType.RESUME, thread_id=tid, rounds=saved.rounds,
                            tool_calls=saved.tool_calls, finished=saved.finished)
+                for ev in self._flush(tid):
+                    yield ev
                 if saved.finished:
                     self._emit(EventType.DONE, reason="已完成的检查点，无需续跑")
-                    return AgentRun(state=saved, events=self._events)
+                    for ev in self._flush(tid):
+                        yield ev
+                    self.last_state = saved
+                    return
 
         final: Dict[str, Any] = dict(init)
         try:
             if hasattr(self._graph, "stream"):
                 # ★ 用 stream 而不是 invoke：能在每个节点后落 checkpoint，
                 #   这才是"可恢复"的前提（invoke 只在结束时返回）。
+                #   顺带：节点粒度也正是"实时轨迹"的推送节拍。
                 for chunk in self._graph.stream(init):
                     for _node, updates in (chunk or {}).items():
                         if isinstance(updates, dict):
                             final.update(updates)
                     self._save(self._as_state(final))
+                    for ev in self._flush(tid):
+                        yield ev
             else:
                 final.update(self._graph.invoke(init) or {})
+                for ev in self._flush(tid):
+                    yield ev
         except Exception as exc:  # noqa: BLE001
             self._emit(EventType.ERROR, message=f"图执行失败: {exc}")
             final["stop_reason"] = "graph_error"
+            for ev in self._flush(tid):
+                yield ev
 
         state = self._as_state(final)
         self._save(state)
         if not state.finished:
             state.finished = True
-        return AgentRun(state=state, events=self._events)
+        self.last_state = state
+
+    def run(
+        self,
+        query: str,
+        thread_id: Optional[str] = None,
+        resume: bool = False,
+    ) -> AgentRun:
+        """同步执行：消费掉全部事件，返回与流式**完全相同**的 AgentRun。"""
+        for _ in self._run_steps(query, thread_id, resume):
+            pass
+        return AgentRun(state=self.last_state, events=self._events)
+
+    def run_stream(
+        self,
+        query: str,
+        thread_id: Optional[str] = None,
+        resume: bool = False,
+    ) -> Iterator[Dict[str, Any]]:
+        """流式执行：每产生一个事件就 yield 一个（节点粒度实时）。
+
+        事件推完后可从 `engine.last_state` 取最终状态（HTTP 层要用它
+        在 SSE 结束后补一条汇总帧）。
+        """
+        for ev in self._run_steps(query, thread_id, resume):
+            yield ev
 
     def resume(self, thread_id: str) -> AgentRun:
         return self.run("", thread_id=thread_id, resume=True)

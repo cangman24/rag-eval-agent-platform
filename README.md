@@ -69,6 +69,32 @@ python demos/demo_agent2.py            # Agent 六场景：多步任务 / 幻觉
 
 评测与项目一共用一套框架（把 `retrieve_fn` 换成 Agent 的 `run()`），记录六类指标：任务成功率 / 平均轮次 / 工具调用 / 工具失败 / 输入 token / P95 延迟。
 
+### 推理轨迹：SSE 实时输出 + 可视化面板
+
+```bash
+# 起 Agent 服务（8100）+ 网页客户端（8080，同源代理两个后端）
+uvicorn rag2_kb_agent.agent_api:app_factory --factory --port 8100
+python tools/serve_ui.py            # 打开 http://127.0.0.1:8080 → 切「Agent 轨迹」页签
+```
+
+引擎在**每个 LangGraph 节点执行完**就把事件推给调用方（`run_stream()`），不是跑完再回放：
+
+```
+start → intent → plan → tool_call → tool_result → verify → answer → done → summary
+```
+
+面板能做的事，正是"定位错误节点"那句话的落点：
+
+- **时间线**按节点级事件渲染，每条带相对耗时（`+12ms`）
+- `tool_error` / `limit` / `error` **标红**，可勾「只看错误」直接筛出失败节点
+- 点任意一条展开**原始 payload**（工具入参、拦截原因、熔断原因）
+- 顶部汇总：轮次 / 工具调用 / 事件数 / 错误节点数 / stop_reason / thread_id
+- 轨迹落盘 `data/checkpoints/<tid>.events.jsonl`，可从下拉框**回放历史 thread**
+
+13 类事件定义在 `core/agent.py` 的 `EventType`；离线自证跑 `python demos/demo_agent_trace.py`（14 项自检，不需要 GPU / API Key / langgraph）。
+
+> 口径说明：本项目的 SSE 是**节点级实时**；项目一的 `/chat/stream` 是**分阶段**（检索命中 → 引用 → 答案整段），不是 token 级流式 —— 底层 LLM 客户端未接流式生成。
+
 ---
 
 ## 接真模型（可选，需要 GPU + DeepSeek Key）
