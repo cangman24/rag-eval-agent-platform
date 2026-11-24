@@ -1,4 +1,13 @@
-# domain-rag-qa · 领域 RAG 问答 + 受控 Agent 平台（双项目）
+# 领域 RAG 与 KB Agent · 历史仓库
+
+两个应用已拆分为独立项目。安装、演示、测试和当前报告入口见各自仓库。
+
+| 项目 | 展示路径 |
+| --- | --- |
+| [Domain RAG QA](https://github.com/cangman24/domain-rag-qa) | 文档入库、带引用问答、检索消融和评测证据校验 |
+| [KB Agent Platform](https://github.com/cangman24/kb-agent-platform) | 受控工具调用、执行中止、检查点续跑与轨迹回放 |
+
+以下内容保留拆分前的架构和实验记录。
 
 > 一套共享基建 `core/`（21 个模块，19 个纯标准库）上的两个可独立运行的应用：
 >
